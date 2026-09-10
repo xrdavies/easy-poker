@@ -483,6 +483,22 @@ describe("straddle / 鱿鱼 / 27杂色", () => {
     });
     drive(three, (id) => (id === "b" ? { type: "allin" } : { type: "fold" }));
     assert.ok(three.events.some((e) => e.type === "squid" && e.message === "鱿鱼惩罚"));
+
+    const { table: mid } = open({ tableNumber: "SQUID4", squidEnabled: true, bounty27Enabled: false });
+    joinSit(mid, "a", "A", 2);
+    joinSit(mid, "b", "B", 2);
+    joinSit(mid, "c", "C", 2);
+    mid.startHand({
+      deck: parseCards("Kc 2h Ac Kd 3h Ad 7c 8d 9s 4c 5d"),
+    });
+    drive(mid, (id) => (id === "a" ? { type: "allin" } : { type: "fold" }));
+    assert.ok(mid.squid!.holders.includes("a"));
+    assert.equal(mid.squid!.holders.length, 1);
+    joinSit(mid, "d", "D", 1);
+    assert.ok(mid.squid!.participants.includes("d"));
+    assert.equal(mid.squid!.holders.includes("d"), false);
+    mid.stand("d");
+    assert.ok(mid.events.some((e) => e.type === "squid" && e.playerId === "d" && e.message === "鱿鱼惩罚"));
   });
 
   it("shown 72o winner is paid 27杂色 bounty; unshown or suited 72 is not", () => {

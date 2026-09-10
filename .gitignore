@@ -6,3 +6,6 @@ node_modules/
 dist/
 .idea/
 .vscode/
+.playwright-mcp/
+ui-desktop.png
+ui-mobile.png
