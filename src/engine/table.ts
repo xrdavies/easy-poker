@@ -401,7 +401,7 @@ export class Table {
       this.config.straddleAllowed &&
       participants.length >= 3 &&
       utgSeat !== null &&
-      (opts.straddle === true || this.playerAt(utgSeat)?.autoStraddle === true);
+      opts.straddle !== false;
     if (wantStraddle && utgSeat !== null) {
       const utg = this.playerAt(utgSeat)!;
       const amt = this.config.bigBlind * 2;
@@ -426,6 +426,16 @@ export class Table {
     if (this.closing) return false;
     if (this.endsAt !== null && this.now() >= this.endsAt) return false;
     return this.seated().filter((p) => p.chips > 0).length >= 2;
+  }
+
+  /** Next Durable Object alarm: action clock, 时长 end, or the inter-hand pause. */
+  nextWakeAt(nextHandDelayMs: number): number | null {
+    if (this.status === "finished") return null;
+    const due: number[] = [];
+    if (this.hand?.actionDeadline != null) due.push(this.hand.actionDeadline);
+    if (this.endsAt != null) due.push(this.endsAt);
+    if (this.canStartHand()) due.push(this.now() + nextHandDelayMs);
+    return due.length ? Math.min(...due) : null;
   }
 
   action(playerId: string, input: ActionInput): void {
@@ -454,6 +464,7 @@ export class Table {
   }
 
   snapshot(viewerId: string | null): ClientSnapshot {
+    this.tick();
     const hand = this.hand;
     const viewer = viewerId ? this.players.get(viewerId) ?? null : null;
     const board = hand ? hand.board.slice() : (this.lastResult?.board ?? []);
@@ -650,7 +661,7 @@ export class Table {
   private dealHole(participants: PlayerState[]): void {
     const hand = this.hand!;
     const order: PlayerState[] = [];
-    let seat = this.nextOccupied(hand.buttonSeat, participants)!;
+    let seat = hand.sbSeat;
     for (let n = 0; n < participants.length; n++) {
       order.push(this.playerAt(seat)!);
       seat = this.nextOccupied(seat, participants)!;

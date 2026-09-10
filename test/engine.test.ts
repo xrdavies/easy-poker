@@ -210,6 +210,30 @@ describe("table create / invite / seats / 结算", () => {
     assert.ok(snap.settlement);
     assert.ok(snap.settlement!.players.some((p) => p.id === "a" && p.net === 0));
   });
+
+  it("时长 expiry settles on snapshot without another command", () => {
+    const { table, clk } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({ deck: parseCards("As Kh Ad Kd 2c 3d 4h 5s 6c") });
+    table.action("a", { type: "fold" });
+    assert.equal(table.status, "playing");
+    assert.ok(table.endsAt);
+    table.stand("b");
+    assert.equal(table.canStartHand(), false);
+    assert.equal(table.nextWakeAt(2800), table.endsAt);
+    clk.set(table.endsAt!);
+    const snap = table.snapshot("a");
+    assert.equal(snap.status, "finished");
+    assert.ok(snap.settlement);
+    assert.equal(snap.settlement!.reason, "duration");
+    assert.ok(snap.settlement!.players.some((p) => p.id === "a"));
+    assert.throws(() => table.startHand(), (err: unknown) => {
+      assert.ok(err instanceof PokerError);
+      assert.equal(err.code, "table_finished");
+      return true;
+    });
+  });
 });
 
 describe("identities / 昵称 / buy-in / privacy", () => {
@@ -315,6 +339,17 @@ describe("hand / street / pots / timeout", () => {
     for (const c of dealt) assert.ok(full.has(c as Card));
   });
 
+  it("heads-up deals from the button/SB, not the BB", () => {
+    const { table } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({ deck: parseCards("As Kh Ad Kd 2c 3d 4h 5s 6c") });
+    assert.equal(table.hand!.sbSeat, 0);
+    assert.equal(table.hand!.bbSeat, 1);
+    assert.deepEqual(table.players.get("a")!.holeCards, parseCards("As Ad"));
+    assert.deepEqual(table.players.get("b")!.holeCards, parseCards("Kh Kd"));
+  });
+
   it("heads-up: button posts SB and acts first preflop, last postflop", () => {
     const { table } = open();
     joinSit(table, "a", "A");
@@ -323,6 +358,8 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.hand!.buttonSeat, 0);
     assert.equal(table.hand!.sbSeat, 0);
     assert.equal(table.hand!.bbSeat, 1);
+    assert.deepEqual(table.players.get("a")!.holeCards, parseCards("Kc Kd"));
+    assert.deepEqual(table.players.get("b")!.holeCards, parseCards("Ac Ad"));
     assert.equal(table.hand!.actingPlayerId, "a");
     table.action("a", { type: "call" });
     assert.equal(table.hand!.actingPlayerId, "b");
@@ -367,7 +404,7 @@ describe("hand / street / pots / timeout", () => {
     joinSit(table, "a", "A");
     joinSit(table, "b", "B");
     table.startHand({
-      deck: parseCards("5c Ac 5d Ad 2c 3d 8h 9s Kd"),
+      deck: parseCards("Ac 5c Ad 5d 2c 3d 8h 9s Kd"),
     });
     checkCall(table);
     assert.equal(table.hand, null);
@@ -427,14 +464,13 @@ describe("hand / street / pots / timeout", () => {
 });
 
 describe("straddle / 鱿鱼 / 27杂色", () => {
-  it("posted UTG straddle is live and preflop action starts to that player’s left", () => {
+  it("straddleAllowed posts a live UTG 2×BB straddle on startHand() with no opts.straddle", () => {
     const { table } = open({ straddleAllowed: true });
     joinSit(table, "a", "A");
     joinSit(table, "b", "B");
     joinSit(table, "c", "C");
     joinSit(table, "d", "D");
     table.startHand({
-      straddle: true,
       deck: parseCards("2c 3d 4h 5s 6c 7d 8h 9s Tc Jd Qh Kc"),
     });
     assert.equal(table.hand!.bbSeat, 2);
@@ -531,7 +567,7 @@ describe("straddle / 鱿鱼 / 27杂色", () => {
     joinSit(hide, "a", "A");
     joinSit(hide, "b", "B");
     hide.startHand({
-      deck: parseCards("7c 9h 2d 8s 3c Td 7h 7s 2s 4c 5d"),
+      deck: parseCards("9h 7c 8s 2d 3c Td 7h 7s 2s 4c 5d"),
     });
     hide.action("a", { type: "fold" });
     assert.equal(

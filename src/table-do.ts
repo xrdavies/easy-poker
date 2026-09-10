@@ -25,10 +25,12 @@ export class TableDO {
       const playerId = url.searchParams.get("playerId") ?? "";
       this.ctx.acceptWebSocket(pair[1]);
       pair[1].serializeAttachment({ playerId });
-      const table = await this.load();
-      if (table && playerId) {
-        pair[1].send(JSON.stringify({ type: "state", snapshot: table.snapshot(playerId) }));
-      } else if (!table) {
+      const table = await this.loadAndTick();
+      if (table) {
+        await this.save(table);
+        await this.schedule(table);
+        pair[1].send(JSON.stringify({ type: "state", snapshot: table.snapshot(playerId || null) }));
+      } else {
         pair[1].send(JSON.stringify({ type: "error", code: "not_found", message: "游戏桌不存在" }));
       }
       return new Response(null, { status: 101, webSocket: pair[0] });
@@ -43,8 +45,10 @@ export class TableDO {
       }
       if (request.method === "GET") {
         const playerId = url.searchParams.get("playerId");
-        const table = await this.load();
+        const table = await this.loadAndTick();
         if (!table) return json({ error: "not_found" }, 404);
+        await this.save(table);
+        await this.schedule(table);
         return json({ snapshot: table.snapshot(playerId) });
       }
       return json({ error: "not_found" }, 404);
@@ -90,8 +94,12 @@ export class TableDO {
   }
 
   private async init(body: CreateTableInput & { playerId: string; nickname: string; password?: string }): Promise<Response> {
-    const existing = await this.load();
-    if (existing) return json({ error: "exists", snapshot: existing.snapshot(body.playerId) }, 409);
+    const existing = await this.loadAndTick();
+    if (existing) {
+      await this.save(existing);
+      await this.schedule(existing);
+      return json({ error: "exists", snapshot: existing.snapshot(body.playerId) }, 409);
+    }
     const table = createTable(
       {
         durationMinutes: body.durationMinutes,
@@ -118,55 +126,64 @@ export class TableDO {
   private async apply(body: Record<string, unknown>): Promise<ReturnType<Table["snapshot"]> | null> {
     const table = await this.load();
     if (!table) throw Object.assign(new Error("游戏桌不存在"), { code: "not_found" });
-    table.tick();
     const type = String(body.type ?? "");
     const playerId = String(body.playerId ?? "");
     const nickname = String(body.nickname ?? "");
+    try {
+      table.tick();
+      switch (type) {
+        case "join":
+          table.addPlayer(playerId, nickname, String(body.password ?? ""));
+          break;
+        case "sit":
+          table.sit(playerId, Number(body.buyinCount ?? 0));
+          break;
+        case "stand":
+          table.stand(playerId);
+          break;
+        case "rebuy":
+          table.rebuy(playerId, Number(body.buyinCount ?? 1));
+          break;
+        case "action":
+          table.action(playerId, {
+            type: body.action as ActionInput["type"],
+            amount: body.amount === undefined ? undefined : Number(body.amount),
+          });
+          break;
+        case "show":
+          table.showCards(playerId);
+          break;
+        case "autoStraddle":
+          table.setAutoStraddle(playerId, Boolean(body.on));
+          break;
+        case "snapshot":
+          break;
+        default:
+          throw Object.assign(new Error("未知命令"), { code: "unknown_cmd" });
+      }
 
-    switch (type) {
-      case "join":
-        table.addPlayer(playerId, nickname, String(body.password ?? ""));
-        break;
-      case "sit":
-        table.sit(playerId, Number(body.buyinCount ?? 0));
-        break;
-      case "stand":
-        table.stand(playerId);
-        break;
-      case "rebuy":
-        table.rebuy(playerId, Number(body.buyinCount ?? 1));
-        break;
-      case "action":
-        table.action(playerId, {
-          type: body.action as ActionInput["type"],
-          amount: body.amount === undefined ? undefined : Number(body.amount),
-        });
-        break;
-      case "show":
-        table.showCards(playerId);
-        break;
-      case "autoStraddle":
-        table.setAutoStraddle(playerId, Boolean(body.on));
-        break;
-      case "snapshot":
-        break;
-      default:
-        throw Object.assign(new Error("未知命令"), { code: "unknown_cmd" });
+      if (!table.hand && table.canStartHand() && table.nextHandNumber === 1) {
+        table.startHand();
+      }
+      return table.snapshot(playerId || null);
+    } finally {
+      await this.save(table);
+      this.broadcast();
+      await this.schedule(table);
     }
-
-    if (!table.hand && table.canStartHand() && table.nextHandNumber === 1) {
-      table.startHand();
-    }
-    await this.save(table);
-    this.broadcast();
-    await this.schedule(table);
-    return table.snapshot(playerId || null);
   }
 
   private async load(): Promise<Table | null> {
     const data = await this.ctx.storage.get<TableJSON>("table");
     if (!data) return null;
     return Table.fromJSON(data, { now: Date.now, random: cryptoRandom });
+  }
+
+  private async loadAndTick(): Promise<Table | null> {
+    const table = await this.load();
+    if (!table) return null;
+    table.tick();
+    return table;
   }
 
   private async save(table: Table): Promise<void> {
@@ -190,17 +207,12 @@ export class TableDO {
   }
 
   private async schedule(table: Table): Promise<void> {
-    if (table.status === "finished") {
+    const when = table.nextWakeAt(NEXT_HAND_MS);
+    if (when === null) {
       await this.ctx.storage.deleteAlarm();
       return;
     }
-    if (table.hand?.actionDeadline) {
-      await this.ctx.storage.setAlarm(table.hand.actionDeadline);
-      return;
-    }
-    if (table.canStartHand()) {
-      await this.ctx.storage.setAlarm(Date.now() + NEXT_HAND_MS);
-    }
+    await this.ctx.storage.setAlarm(when);
   }
 }
 
