@@ -428,12 +428,12 @@ export class Table {
     return this.seated().filter((p) => p.chips > 0).length >= 2;
   }
 
-  /** Next Durable Object alarm: action clock, 时长 end, or the inter-hand pause. */
+  /** Next Durable Object alarm: action clock, 时长 end (between hands), or the inter-hand pause. */
   nextWakeAt(nextHandDelayMs: number): number | null {
     if (this.status === "finished") return null;
     const due: number[] = [];
     if (this.hand?.actionDeadline != null) due.push(this.hand.actionDeadline);
-    if (this.endsAt != null) due.push(this.endsAt);
+    if (!this.hand && this.endsAt != null) due.push(this.endsAt);
     if (this.canStartHand()) due.push(this.now() + nextHandDelayMs);
     return due.length ? Math.min(...due) : null;
   }

@@ -234,6 +234,24 @@ describe("table create / invite / seats / 结算", () => {
       return true;
     });
   });
+
+  it("last hand past 时长 still wakes on actionDeadline, not a past endsAt", () => {
+    const { table, clk } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({ deck: parseCards("As Kh Ad Kd 2c 3d 4h 5s 6c") });
+    table.action("a", { type: "fold" });
+    clk.set(table.endsAt! - 100);
+    table.startHand({ deck: parseCards("2c 3d 4h 5s 6c 7d 8h 9s Tc") });
+    assert.ok(table.hand?.actingPlayerId);
+    const deadline = table.hand!.actionDeadline!;
+    clk.set(table.endsAt! + 1);
+    assert.equal(table.status, "playing");
+    assert.ok(table.hand);
+    const wake = table.nextWakeAt(2800);
+    assert.equal(wake, deadline);
+    assert.ok(wake! >= clk.now());
+  });
 });
 
 describe("identities / 昵称 / buy-in / privacy", () => {
