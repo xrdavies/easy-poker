@@ -1,0 +1,17 @@
+name = "easy-poker"
+main = "src/index.ts"
+compatibility_date = "2025-09-11"
+workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
+[durable_objects]
+bindings = [{ name = "TABLE", class_name = "TableDO" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TableDO"]

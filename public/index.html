@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    <meta name="theme-color" content="#071018" />
+    <title>易扑克 · 德州扑克</title>
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♠</text></svg>" />
+  </head>
+  <body>
+    <div id="app">
+      <section id="gate" class="screen">
+        <div class="gate-card">
+          <div class="brand">
+            <div class="suit-row" aria-hidden="true"><span>♠</span><span class="red">♥</span><span>♣</span><span class="red">♦</span></div>
+            <h1>易扑克</h1>
+            <p>长牌德州 · 最多十人现金桌</p>
+          </div>
+          <label class="field">
+            <span>昵称</span>
+            <div class="row">
+              <input id="nickname" maxlength="16" placeholder="给自己取个名字" autocomplete="nickname" />
+              <button type="button" id="random-name" class="ghost">随机名</button>
+            </div>
+          </label>
+          <div class="tabs">
+            <button type="button" class="tab on" data-tab="create">创建游戏桌</button>
+            <button type="button" class="tab" data-tab="join">加入游戏桌</button>
+          </div>
+          <form id="create-form" class="panel">
+            <label class="field">
+              <span>游戏时长</span>
+              <select id="duration">
+                <option value="30">30 分钟</option>
+                <option value="60">1 小时</option>
+                <option value="120">2 小时</option>
+                <option value="240">4 小时</option>
+                <option value="480">8 小时</option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" id="unlimited" /> 无限 buy-in</label>
+            <label class="field" id="max-buyin-field">
+              <span>最大 buy-in 次数</span>
+              <input id="max-buyins" type="number" min="1" max="99" value="10" />
+            </label>
+            <label class="check"><input type="checkbox" id="straddle" /> 允许 Straddle（默认关）</label>
+            <label class="check"><input type="checkbox" id="squid" /> 鱿鱼游戏（默认关）</label>
+            <label class="check"><input type="checkbox" id="bounty" checked /> 27 杂色奖励（默认开）</label>
+            <button type="submit" class="primary">创建并进入</button>
+          </form>
+          <form id="join-form" class="panel hidden">
+            <label class="field">
+              <span>游戏桌号码</span>
+              <input id="join-number" maxlength="8" placeholder="六位号码" class="mono" />
+            </label>
+            <label class="field">
+              <span>密码</span>
+              <input id="join-password" maxlength="8" placeholder="四位密码" class="mono" />
+            </label>
+            <button type="submit" class="primary">加入游戏桌</button>
+          </form>
+        </div>
+      </section>
+
+      <section id="table-screen" class="screen hidden">
+        <header class="topbar">
+          <div class="top-left">
+            <strong class="logo">易扑克</strong>
+            <span id="table-id" class="mono"></span>
+            <span id="table-clock" class="clock"></span>
+          </div>
+          <div class="top-right">
+            <button type="button" id="btn-copy-link" class="ghost sm">复制邀请链接</button>
+            <button type="button" id="btn-copy-code" class="ghost sm">复制号码+密码</button>
+            <button type="button" id="btn-sit" class="primary sm">坐下</button>
+            <button type="button" id="btn-stand" class="ghost sm hidden">起身</button>
+          </div>
+        </header>
+        <div class="table-wrap">
+          <div class="rail">
+            <div class="felt" id="felt">
+              <div id="seats" class="seats"></div>
+              <div class="center-stack">
+                <div id="street-label" class="street"></div>
+                <div id="pot" class="pot">底池 0</div>
+                <div id="board" class="board"></div>
+                <div id="banner" class="banner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <footer class="dock">
+          <div class="hole" id="hole"></div>
+          <div class="meta" id="meta"></div>
+          <div class="actions" id="actions"></div>
+        </footer>
+      </section>
+
+      <section id="settle-screen" class="screen hidden">
+        <div class="gate-card settle">
+          <h2>游戏桌已结束</h2>
+          <p class="muted">该桌不能重新开启，以下为结算</p>
+          <div id="settle-table"></div>
+          <div class="row">
+            <button type="button" id="btn-copy-link-2" class="ghost">复制邀请链接</button>
+            <a class="primary" href="/">返回大厅</a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-card">
+        <h3>补充筹码</h3>
+        <p class="muted">每次 buy-in = 100 大盲。坐下后筹码只在本桌有效。</p>
+        <label class="field">
+          <span>buy-in 次数</span>
+          <input id="buyin-n" type="number" min="1" value="1" />
+        </label>
+        <p id="buyin-hint" class="muted"></p>
+        <div class="row">
+          <button type="button" id="buyin-cancel" class="ghost">取消</button>
+          <button type="button" id="buyin-ok" class="primary">坐下</button>
+        </div>
+      </div>
+    </div>
+    <div id="toast" class="toast hidden"></div>
+
+    <audio id="sfx-fold" src="/sounds/fold.wav" preload="auto"></audio>
+    <audio id="sfx-check" src="/sounds/check.wav" preload="auto"></audio>
+    <audio id="sfx-raise" src="/sounds/raise.wav" preload="auto"></audio>
+    <audio id="sfx-deal" src="/sounds/deal.wav" preload="auto"></audio>
+    <audio id="sfx-settle" src="/sounds/settle.wav" preload="auto"></audio>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "easy-poker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "多人在线德州扑克（长牌现金桌），Cloudflare Workers 全栈",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "sounds": "node scripts/generate-sounds.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "wrangler": "^4.34.0"
+  }
+}
