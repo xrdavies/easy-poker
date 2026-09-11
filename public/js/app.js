@@ -41,7 +41,7 @@ const SFX_POOL = {
   raise: ["bet-1", "bet-2", "bet-3"],
   allin: ["allin"],
   deal: ["deal"],
-  shuffle: ["shuffle", "shuffle-2", "shuffle-3", "shuffle-4", "shuffle-5"],
+  shuffle: ["shuffle-1", "shuffle-2", "shuffle-3", "shuffle-4", "shuffle-5"],
   tick: ["tick"],
   win: ["win"],
   lose: ["lose"],

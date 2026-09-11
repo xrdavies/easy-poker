@@ -156,7 +156,7 @@ writeM4a("allin", sayVoice("all in", "allin"));
 writeM4a("bet-1", loadSrc("bet-1.mp3"));
 writeM4a("bet-2", loadSrc("bet-2.mp3"));
 writeM4a("bet-3", loadSrc("bet-3.mp3"));
-writeM4a("shuffle", loadSrc("shuffle-cards-1.mp3"));
+writeM4a("shuffle-1", loadSrc("shuffle-cards-1.mp3"));
 writeM4a("shuffle-2", loadSrc("shuffle-cards-5.mp3"));
 writeM4a("shuffle-3", loadSrc("shuffle-cards-2.mp3", { durationSec: 0.85 }));
 writeM4a("shuffle-4", loadSrc("shuffle-cards-3.mp3", { durationSec: 0.85 }));
