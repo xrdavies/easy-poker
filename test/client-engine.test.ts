@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { SFX_IDS, SFX_POOL } from "../client/src/sfx.ts";
+import { syncTableEngine, tableScreenIsVisible } from "../client/src/table-engine.ts";
 // shipped entry is public/js/game.js after vite build
 
 const url = (p: string) => new URL(p, import.meta.url);
@@ -92,6 +93,36 @@ describe("2d-engine backed client", () => {
     const gateAt = html.indexOf('id="gate"');
     const tableAt = html.indexOf('id="table-screen"');
     assert.ok(gateAt >= 0 && tableAt > gateAt);
+
+    const css = read("../public/css/engine.css");
+    assert.match(css, /#table-screen\.hidden #game-canvas/);
+    assert.match(main, /MutationObserver/);
+    assert.match(main, /syncTableEngine/);
+    assert.match(main, /startOverlay/);
+    const bootAt = main.indexOf("async function boot");
+    const overlayAt = main.indexOf("startOverlay", bootAt);
+    const createAt = main.indexOf("Engine.create", bootAt);
+    assert.ok(overlayAt >= 0 && createAt > overlayAt);
+  });
+
+  it("starts WebGPU only while the table screen is visible", () => {
+    const hidden = { classList: { contains: (token: string) => token === "hidden" } };
+    const shown = { classList: { contains: () => false } };
+    assert.equal(tableScreenIsVisible(hidden), false);
+    assert.equal(tableScreenIsVisible(shown), true);
+    assert.equal(tableScreenIsVisible(null), false);
+
+    const calls: string[] = [];
+    const handle = {
+      pause: () => calls.push("pause"),
+      resume: () => calls.push("resume"),
+      resize: () => calls.push("resize"),
+    };
+    syncTableEngine(false, handle, () => calls.push("start"));
+    syncTableEngine(true, null, () => calls.push("start"));
+    syncTableEngine(true, handle, () => calls.push("start"));
+    syncTableEngine(false, handle, () => calls.push("start"));
+    assert.deepEqual(calls, ["pause", "start", "resume", "resize", "pause"]);
   });
 
   it("keeps player-facing chrome: invite, 8 seats, showdown overlay", () => {

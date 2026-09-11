@@ -7,6 +7,13 @@
   pointer-events: none;
   z-index: 0;
 }
+#table-screen.hidden #game-canvas,
+#table-screen.hidden [data-engine-ui] {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 .table-wrap .rail { position: relative; z-index: 1; }
 body.engine-gpu .rail {
   background: transparent;
