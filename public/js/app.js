@@ -101,10 +101,20 @@ const PORTRAIT_SEATS = [
   { x: 89, y: 73 },
 ];
 
+const LANDSCAPE_SEATS = [
+  { x: 50, y: 90 },
+  { x: 18, y: 84 },
+  { x: 5, y: 50 },
+  { x: 18, y: 16 },
+  { x: 50, y: 10 },
+  { x: 82, y: 16 },
+  { x: 95, y: 50 },
+  { x: 82, y: 84 },
+];
+
 function seatPos(i) {
-  if (isPortraitTable()) return PORTRAIT_SEATS[i] || { x: 50, y: 50 };
-  const theta = Math.PI / 2 + i * ((2 * Math.PI) / SEATS);
-  return { x: 50 + 42 * Math.cos(theta), y: 50 + 28 * Math.sin(theta) };
+  const ring = isPortraitTable() ? PORTRAIT_SEATS : LANDSCAPE_SEATS;
+  return ring[i] || { x: 50, y: 50 };
 }
 
 const CHIP_DENOMS = [

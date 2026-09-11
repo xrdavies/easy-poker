@@ -15,7 +15,7 @@
   --card: #f8f4ec;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
   --radius: 18px;
-  --rail-w: 16px;
+  --felt-inset: 5%;
   color-scheme: dark;
 }
 
@@ -113,7 +113,7 @@ button { cursor: pointer; }
 }
 .felt {
   position: absolute;
-  inset: var(--rail-w);
+  inset: var(--felt-inset);
   border-radius: 999px;
   background:
     radial-gradient(ellipse 70% 55% at 50% 42%, #14945c 0%, var(--felt) 46%, var(--felt-2) 100%);
@@ -267,7 +267,7 @@ button { cursor: pointer; }
   transform: translate(-50%, -50%);
   text-align: center;
   z-index: 1;
-  width: min(72%, 520px);
+  width: min(58%, 520px);
 }
 .pot { font-size: 18px; font-weight: 700; color: #ffe9b0; text-shadow: 0 2px 8px rgba(0,0,0,.5); }
 .street { font-size: 12px; letter-spacing: 0.2em; color: #cde7d8; text-transform: uppercase; margin-bottom: 6px; }
@@ -489,7 +489,7 @@ button { cursor: pointer; }
   .table-wrap { padding: 6px 8px 0; }
   .rail {
     /* phone: standing racetrack, nearly full width so side seats hug the edges */
-    --rail-w: 14px;
+    --felt-inset: 14px;
     width: min(96vw, calc(min(62vh, 640px) / 1.65));
     aspect-ratio: 1 / 1.65;
     padding: 0;
