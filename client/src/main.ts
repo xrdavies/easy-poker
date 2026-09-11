@@ -21,17 +21,21 @@ declare global {
 
 window.__EASY_POKER_USES_2D_ENGINE = true;
 
+/** Table-canvas overlay only. Never pass #gate / #settle-screen / page chrome. */
+export function attachTableUiBridge(canvas: HTMLCanvasElement): UIBridge {
+  return new UIBridge(canvas);
+}
+
 async function boot(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas");
-  const uiRoot = document.querySelector<HTMLElement>("#ui-root");
-  if (!canvas || !uiRoot) throw new Error("Easy Poker shell is incomplete");
+  if (!canvas) throw new Error("Easy Poker shell is incomplete");
 
   const sfx = new PokerSfx();
   const net = new PokerNet();
   void sfx.preload();
 
-  const bridge = new UIBridge(canvas, uiRoot);
-  bridge.setInputCaptured(true);
+  const bridge = attachTableUiBridge(canvas);
+  bridge.setInputCaptured(false);
 
   try {
     const engine = await Engine.create({ canvas, autoStart: true, input: true });

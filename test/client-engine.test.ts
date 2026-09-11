@@ -68,6 +68,32 @@ describe("2d-engine backed client", () => {
     }
   });
 
+  it("does not bind UIBridge to full-page chrome wrapping gate or settle", () => {
+    const main = read("../client/src/main.ts");
+    const html = read("../client/index.html");
+    const built = read("../public/index.html");
+    const gameJs = read("../public/js/game.js");
+
+    assert.match(main, /export function attachTableUiBridge/);
+    assert.match(main, /new UIBridge\(\s*canvas\s*\)/);
+    assert.doesNotMatch(main, /new UIBridge\(\s*canvas\s*,/);
+    assert.doesNotMatch(main, /#ui-root/);
+    assert.doesNotMatch(html, /id="ui-root"/);
+    assert.doesNotMatch(built, /id="ui-root"/);
+    assert.doesNotMatch(gameJs, /ui-root/);
+
+    const wrapStart = html.indexOf('class="table-wrap"');
+    assert.ok(wrapStart >= 0);
+    const wrap = html.slice(wrapStart, html.indexOf('id="showdown"'));
+    assert.doesNotMatch(wrap, /id="gate"/);
+    assert.doesNotMatch(wrap, /id="settle-screen"/);
+    assert.match(html, /id="gate"/);
+    assert.match(html, /class="gate-card"/);
+    const gateAt = html.indexOf('id="gate"');
+    const tableAt = html.indexOf('id="table-screen"');
+    assert.ok(gateAt >= 0 && tableAt > gateAt);
+  });
+
   it("keeps player-facing chrome: invite, 8 seats, showdown overlay", () => {
     const overlay = read("../client/src/overlay.ts");
     const html = read("../client/index.html");
