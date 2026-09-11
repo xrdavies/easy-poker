@@ -28,7 +28,8 @@ function resolveApiOrigin(page: URL, configured: string): string {
   const cfg = configured.replace(/\/$/, "");
   const cfgLocal = !cfg || /localhost|127\.0\.0\.1/.test(cfg);
   if (cfg && (pageLocal || !cfgLocal)) return cfg;
-  if (host.endsWith(".workers.dev") && host.startsWith("easy-poker.")) {
+  // if (host.endsWith(".workers.dev") && host.startsWith("easy-poker.")) {
+  if (host.startsWith("easy-poker.")) {
     return `${page.protocol}//${host.replace(/^easy-poker\./, "easy-poker-api.")}`;
   }
   return cfg;
