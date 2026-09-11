@@ -444,7 +444,7 @@ function updateCountdown(snap) {
   if (left != null) {
     const sec = Math.ceil(left / 1000);
     el.textContent = `行动倒计时 ${sec}s`;
-    if (left > 0 && left <= 5000) {
+    if (left > 0 && left <= 5000 && snap.actingPlayerId === snap.me?.id) {
       if (state.lastTickSec !== sec) {
         state.lastTickSec = sec;
         play("tick");

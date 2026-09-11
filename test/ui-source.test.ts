@@ -103,6 +103,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /play\("deal"\)/);
     assert.match(js, /play\("shuffle"\)/);
     assert.match(js, /play\("tick"\)/);
+    assert.match(js, /actingPlayerId === snap\.me\?\.id/);
     assert.match(js, /play\("win"\)/);
     assert.match(js, /play\("lose"\)/);
     assert.match(js, /SFX_POOL/);
