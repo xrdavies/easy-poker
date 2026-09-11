@@ -1,5 +1,5 @@
 /** Sampled SFX live in scripts/sfx-src (free card/chip recordings).
- *  Mapping: place-cards → deal + fold bed; bet-1/2/3 → bet/raise;
+ *  Mapping: place-cards → deal + fold bed; bet-1/2/3 → bet/call/raise;
  *  all-in is spoken "all in"; shuffle-cards-1/5 full, 2/3/4 trimmed to ~0.9s → shuffle pool.
  *  Output is 48 kbps mono AAC in public/sounds.
  */
@@ -156,7 +156,7 @@ writeM4a("lose", lose);
 
 writeM4a("deal", loadSrc("place-cards.mp3"));
 writeM4a("allin", sayVoice("all in", "allin"));
-writeM4a("bet", loadSrc("bet-1.mp3"));
+writeM4a("bet-1", loadSrc("bet-1.mp3"));
 writeM4a("bet-2", loadSrc("bet-2.mp3"));
 writeM4a("bet-3", loadSrc("bet-3.mp3"));
 writeM4a("shuffle", loadSrc("shuffle-cards-1.mp3"));

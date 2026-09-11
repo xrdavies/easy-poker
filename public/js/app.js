@@ -36,8 +36,9 @@ function toast(msg) {
 const SFX_POOL = {
   fold: ["fold"],
   check: ["check"],
-  bet: ["bet", "bet-2", "bet-3"],
-  raise: ["bet", "bet-2", "bet-3"],
+  bet: ["bet-1", "bet-2", "bet-3"],
+  call: ["bet-1", "bet-2", "bet-3"],
+  raise: ["bet-1", "bet-2", "bet-3"],
   allin: ["allin"],
   deal: ["deal"],
   shuffle: ["shuffle", "shuffle-2", "shuffle-3", "shuffle-4", "shuffle-5"],
@@ -228,8 +229,7 @@ function playEvents(events = []) {
   for (const e of events) {
     if (e.type === "fold" || e.type === "timeout") once("fold");
     else if (e.type === "check") once("check");
-    else if (e.type === "bet") once("bet");
-    else if (e.type === "raise") once("raise");
+    else if (e.type === "call" || e.type === "bet" || e.type === "raise") play("bet");
     else if (e.type === "allin") once("allin");
   }
 }
@@ -404,7 +404,12 @@ function renderShowdown(snap) {
   if (state.showdownHand === hn) return;
   state.showdownHand = hn;
   const lr = snap.lastResult;
-  $("sd-kicker").textContent = lr.uncontested ? "对手弃牌 · 本手结算" : "本手结算";
+  const me = snap.me?.id;
+  $("sd-kicker").textContent = (lr.timeoutIds || []).length
+    ? "超时弃牌 · 本手结算"
+    : lr.uncontested
+      ? "对手弃牌 · 本手结算"
+      : "本手结算";
   const runs = lr.runs?.length ? lr.runs : [{ board: lr.board || [], winners: lr.winners || [] }];
   $("sd-board").innerHTML = runs
     .map((run, i) => {
@@ -423,9 +428,10 @@ function renderShowdown(snap) {
     .map((id) => {
       const win = winIds.has(id);
       const folded = (lr.foldedIds || []).includes(id);
+      const timed = (lr.timeoutIds || []).includes(id);
       const cards = lr.shown?.[id] || [];
       const hn2 = lr.winners.find((w) => w.id === id)?.handName || "";
-      const tag = folded && !win ? " · 弃牌" : hn2 ? " · " + hn2 : "";
+      const tag = timed ? " · 超时弃牌" : folded && !win ? " · 弃牌" : hn2 ? " · " + hn2 : "";
       const holes = cards.length ? cards.map((c) => cardHTML(c, "tiny")).join("") : "";
       return `<div class="sd-row ${win ? "winner" : ""}"><div class="name">${escapeHtml(nameOf(snap, id))}${tag}</div><div class="sd-holes">${holes}</div></div>`;
     })
@@ -435,11 +441,11 @@ function renderShowdown(snap) {
     .map((w) => `${nameOf(snap, w.id)} 赢得 ${fmtChips(w.amount)}${w.handName ? " · " + w.handName : ""}`)
     .join("　") || "本手结束";
   box.classList.remove("hidden");
-  const me = snap.me?.id;
   const won = Boolean(me && lr.winners.some((w) => w.id === me && w.amount > 0));
   const shown = Boolean(me && lr.shown?.[me]);
+  const timedOut = Boolean(me && (lr.timeoutIds || []).includes(me));
   if (won) play("win");
-  else if (shown) play("lose");
+  else if (shown || timedOut) play("lose");
 }
 
 function actionMsLeft(snap) {

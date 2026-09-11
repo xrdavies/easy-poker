@@ -6,7 +6,7 @@ export interface Env {
   TABLE: DurableObjectNamespace;
 }
 
-const NEXT_HAND_MS = 2800;
+const NEXT_HAND_MS = 5000;
 
 export class TableDO {
   ctx: DurableObjectState;

@@ -54,6 +54,7 @@ export interface LastResult {
   pot: number;
   uncontested: boolean;
   foldedIds: string[];
+  timeoutIds: string[];
   runs: { board: Card[]; winners: { id: string; amount: number; handName?: string }[] }[];
 }
 
@@ -172,6 +173,7 @@ export class Table {
   nextHandAt: number | null = null;
   bountyPaid = new Set<string>();
   runoutVote: RunoutVote | null = null;
+  lastTimeoutIds: string[] = [];
   now: () => number;
   random: () => number;
 
@@ -220,6 +222,7 @@ export class Table {
           shown: { ...data.lastResult.shown },
           uncontested: data.lastResult.uncontested ?? Object.keys(data.lastResult.shown ?? {}).length === 0,
           foldedIds: data.lastResult.foldedIds?.slice() ?? [],
+          timeoutIds: data.lastResult.timeoutIds?.slice() ?? [],
           runs: (data.lastResult.runs ?? [{ board: data.lastResult.board, winners: data.lastResult.winners }]).map(
             (r) => ({ board: r.board.slice(), winners: r.winners.slice() }),
           ),
@@ -232,6 +235,7 @@ export class Table {
     t.runoutVote = data.runoutVote
       ? { deadline: data.runoutVote.deadline, choices: { ...data.runoutVote.choices } }
       : null;
+    t.lastTimeoutIds = [];
     return t;
   }
 
@@ -382,6 +386,7 @@ export class Table {
 
     this.events = [];
     this.lastResult = null;
+    this.lastTimeoutIds = [];
     this.runoutVote = null;
     this.nextHandAt = null;
     this.bountyPaid = new Set();
@@ -507,6 +512,7 @@ export class Table {
       const p = this.players.get(id);
       this.events = [];
       this.events.push({ type: "timeout", playerId: id });
+      this.lastTimeoutIds = [id];
       if (p && !p.folded) this.applyAction(id, { type: "fold" });
       else this.progressHand();
       if (this.hand?.actingPlayerId === id) this.progressHand();
@@ -609,6 +615,7 @@ export class Table {
             shown: { ...this.lastResult.shown },
             uncontested: this.lastResult.uncontested,
             foldedIds: this.lastResult.foldedIds.slice(),
+            timeoutIds: this.lastResult.timeoutIds.slice(),
             runs: this.lastResult.runs.map((r) => ({
               board: r.board.slice(),
               winners: r.winners.slice(),
@@ -1347,8 +1354,10 @@ export class Table {
       pot: potTotal,
       uncontested: !revealed,
       foldedIds,
+      timeoutIds: this.lastTimeoutIds.slice(),
       runs: runList,
     };
+    this.lastTimeoutIds = [];
     this.runoutVote = null;
     this.events.push({ type: "settle" });
     for (const p of this.players.values()) {

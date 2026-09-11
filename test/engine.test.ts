@@ -503,7 +503,7 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.players.get("c")!.chips, 0);
   });
 
-  it("15s timeout with injected clock folds and shows uncontested settlement", () => {
+  it("10s timeout with injected clock folds and shows uncontested settlement", () => {
     const { table, clk } = open();
     joinSit(table, "a", "A");
     joinSit(table, "b", "B");
@@ -524,6 +524,7 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.lastResult!.uncontested, true);
     assert.ok(table.lastResult!.winners.some((w) => w.id === "b" && w.amount > 0));
     assert.ok(table.lastResult!.foldedIds.includes("a"));
+    assert.ok(table.lastResult!.timeoutIds.includes("a"));
     const snap = table.snapshot("b");
     assert.ok(snap.lastResult?.winners.some((w) => w.id === "b" && w.amount > 0));
     assert.equal(snap.street, null);
