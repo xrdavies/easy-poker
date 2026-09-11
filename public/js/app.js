@@ -53,9 +53,14 @@ function fmtMs(ms) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+function isPortraitTable() {
+  return window.matchMedia("(orientation: portrait), (max-width: 820px)").matches;
+}
+
 function seatPos(i) {
   const theta = Math.PI / 2 + i * ((2 * Math.PI) / 10);
-  return { x: 50 + 44 * Math.cos(theta), y: 50 + 40 * Math.sin(theta) };
+  if (isPortraitTable()) return { x: 50 + 36 * Math.cos(theta), y: 50 + 42 * Math.sin(theta) };
+  return { x: 50 + 44 * Math.cos(theta), y: 50 + 30 * Math.sin(theta) };
 }
 
 const CHIP_DENOMS = [
@@ -90,11 +95,28 @@ async function api(path, body) {
   return data;
 }
 
+function saveTableSession() {
+  if (!state.tableNumber || !state.password) return;
+  localStorage.setItem("ep.table", JSON.stringify({ tableNumber: state.tableNumber, password: state.password }));
+  const u = new URL(location.href);
+  u.searchParams.set("t", state.tableNumber);
+  u.searchParams.set("p", state.password);
+  history.replaceState(null, "", u.pathname + u.search);
+}
+
+function clearTableSession() {
+  localStorage.removeItem("ep.table");
+  const u = new URL(location.href);
+  u.search = "";
+  history.replaceState(null, "", u.pathname);
+}
+
 function applySnapshot(snap) {
   if (!snap) return;
   state.snapshot = snap;
   state.tableNumber = snap.tableNumber;
   state.password = snap.password;
+  saveTableSession();
   if (snap.status === "finished") {
     showSettle(snap);
     playEvents(snap.events);
@@ -256,6 +278,7 @@ async function cmd(payload) {
 
 function connectWs() {
   if (!state.tableNumber) return;
+  if (state.ws && state.ws.readyState === WebSocket.OPEN) return;
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${location.host}/ws?table=${encodeURIComponent(state.tableNumber)}&playerId=${encodeURIComponent(state.playerId)}`);
   state.ws = ws;
@@ -265,8 +288,46 @@ function connectWs() {
     if (msg.type === "error") toast(msg.message || msg.code);
   };
   ws.onclose = () => {
+    if (!state.tableNumber) return;
     setTimeout(connectWs, 1200);
   };
+}
+
+function showLobby() {
+  $("table-screen").classList.add("hidden");
+  $("settle-screen").classList.add("hidden");
+  $("gate").classList.remove("hidden");
+  if (state.nickname) $("nickname").value = state.nickname;
+}
+
+async function leaveTable() {
+  const sitting = Boolean(state.snapshot?.me?.sitting);
+  const finished = state.snapshot?.status === "finished";
+  const tableNumber = state.tableNumber;
+  if (sitting && !finished && tableNumber) {
+    try {
+      await api("/api/cmd", {
+        type: "stand",
+        playerId: state.playerId,
+        tableNumber,
+        nickname: state.nickname,
+      });
+    } catch {
+      /* still leave the UI */
+    }
+  }
+  state.tableNumber = "";
+  state.password = "";
+  state.snapshot = null;
+  state.lastEvents = "";
+  if (state.ws) {
+    const ws = state.ws;
+    state.ws = null;
+    ws.onclose = null;
+    ws.close();
+  }
+  clearTableSession();
+  showLobby();
 }
 
 function showSettle(snap) {
@@ -369,6 +430,8 @@ async function join(tableNumber, password) {
 $("btn-copy-link").onclick = () => copy(inviteUrl(), "邀请链接已复制");
 $("btn-copy-code").onclick = () => copy(`游戏桌 ${state.tableNumber} 密码 ${state.password}`, "号码和密码已复制");
 $("btn-copy-link-2").onclick = () => copy(inviteUrl(), "邀请链接已复制");
+$("btn-leave").onclick = () => void leaveTable();
+$("btn-leave-2").onclick = () => void leaveTable();
 
 function openBuyin(okLabel) {
   const snap = state.snapshot;
@@ -426,11 +489,28 @@ setInterval(() => {
   if (state.tableNumber) void cmd({ type: "snapshot" });
 }, 400);
 
-$("nickname").value = "";
+$("nickname").value = state.nickname;
+
+window.addEventListener("resize", () => {
+  if (state.snapshot && !$("table-screen").classList.contains("hidden")) renderTable(state.snapshot);
+});
 
 const params = new URLSearchParams(location.search);
-if (params.get("t")) $("join-number").value = params.get("t");
-if (params.get("p")) $("join-password").value = params.get("p");
-if (params.get("t") && params.get("p")) {
+let storedTable = null;
+try {
+  storedTable = JSON.parse(localStorage.getItem("ep.table") || "null");
+} catch {
+  storedTable = null;
+}
+const restoreT = params.get("t") || storedTable?.tableNumber || "";
+const restoreP = params.get("p") || storedTable?.password || "";
+if (restoreT) $("join-number").value = restoreT;
+if (restoreP) $("join-password").value = restoreP;
+if (restoreT && restoreP && state.nickname) {
+  void join(restoreT, restoreP).catch((err) => {
+    clearTableSession();
+    toast(err.message || "无法回到游戏桌");
+  });
+} else if (restoreT && restoreP) {
   document.querySelector('.tab[data-tab="join"]').click();
 }
