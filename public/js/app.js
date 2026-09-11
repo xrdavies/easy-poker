@@ -140,7 +140,9 @@ function chipStackHTML(amount) {
 function inferApiOrigin() {
   const host = location.hostname;
   if (host === "localhost" || host === "127.0.0.1") return `${location.protocol}//${host}:8789`;
-  if (host.endsWith(".workers.dev") && host.startsWith("easy-poker.")) {
+  // if (host.endsWith(".workers.dev") && host.startsWith("easy-poker.")) {
+  if (host.startsWith("easy-poker.")) {
+
     return `${location.protocol}//${host.replace(/^easy-poker\./, "easy-poker-api.")}`;
   }
   return location.origin;
