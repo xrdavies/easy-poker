@@ -236,39 +236,39 @@ function renderTable(snap) {
   $("btn-sit").classList.toggle("hidden", sitting);
   $("btn-stand").classList.toggle("hidden", !sitting);
   $("btn-rebuy-top").classList.toggle("hidden", !sitting);
-  updateCountdown(snap);
   const key = visualKey(snap);
-  if (key === state.visualKey) return;
-  state.visualKey = key;
-
-  renderSeats(snap);
-  $("felt").classList.toggle("is-showdown", Boolean(snap.lastResult && !snap.street));
-  $("street-label").textContent = snap.lastResult && !snap.street ? "摊牌" : STREET[snap.street] || (snap.status === "waiting" ? "等待玩家" : "");
-  $("pot").innerHTML = snap.pot ? chipStackHTML(snap.pot) : `<span class="chip-amt">底池 0</span>`;
-  const bannerBits = [];
-  if (snap.lastResult?.winners?.length && !snap.street) {
-    bannerBits.push(
-      snap.lastResult.winners
-        .filter((w) => w.amount > 0)
-        .map((w) => `${nameOf(snap, w.id)} 赢得 ${fmtChips(w.amount)}${w.handName ? " · " + w.handName : ""}`)
-        .join("　"),
-    );
-    if (snap.me?.sitting && snap.me.chips === 0) bannerBits.push("筹码为 0，补码后从下一手参与");
+  if (key !== state.visualKey) {
+    state.visualKey = key;
+    renderSeats(snap);
+    $("felt").classList.toggle("is-showdown", Boolean(snap.lastResult && !snap.street));
+    $("street-label").textContent = snap.lastResult && !snap.street ? "摊牌" : STREET[snap.street] || (snap.status === "waiting" ? "等待玩家" : "");
+    $("pot").innerHTML = snap.pot ? chipStackHTML(snap.pot) : `<span class="chip-amt">底池 0</span>`;
+    const bannerBits = [];
+    if (snap.lastResult?.winners?.length && !snap.street) {
+      bannerBits.push(
+        snap.lastResult.winners
+          .filter((w) => w.amount > 0)
+          .map((w) => `${nameOf(snap, w.id)} 赢得 ${fmtChips(w.amount)}${w.handName ? " · " + w.handName : ""}`)
+          .join("　"),
+      );
+      if (snap.me?.sitting && snap.me.chips === 0) bannerBits.push("筹码为 0，补码后从下一手参与");
+    }
+    $("banner").textContent = bannerBits.join(" · ");
+    const info = [];
+    if (snap.me) {
+      const pending = snap.me.pendingChips ? ` · 待下局 +${fmtChips(snap.me.pendingChips)}` : "";
+      info.push(`${escapeHtml(snap.me.nickname)} · ${fmtChips(snap.me.chips)}${pending} · buy-in ${snap.me.buyinCount}`);
+    }
+    if (snap.config.straddleAllowed) info.push("Straddle");
+    if (snap.config.squidEnabled) info.push("鱿鱼");
+    if (snap.config.bounty27Enabled) info.push("27杂色");
+    info.push(snap.config.unlimitedBuyin ? "无限买入" : `最多${snap.config.maxBuyins}次买入`);
+    $("meta").innerHTML = info.map((t) => `<span class="chip">${t}</span>`).join(" ");
+    renderActions(snap);
+    queueDeals(snap);
+    renderShowdown(snap);
   }
-  $("banner").textContent = bannerBits.join(" · ");
-  const info = [];
-  if (snap.me) {
-    const pending = snap.me.pendingChips ? ` · 待下局 +${fmtChips(snap.me.pendingChips)}` : "";
-    info.push(`${escapeHtml(snap.me.nickname)} · ${fmtChips(snap.me.chips)}${pending} · buy-in ${snap.me.buyinCount}`);
-  }
-  if (snap.config.straddleAllowed) info.push("Straddle");
-  if (snap.config.squidEnabled) info.push("鱿鱼");
-  if (snap.config.bounty27Enabled) info.push("27杂色");
-  info.push(snap.config.unlimitedBuyin ? "无限买入" : `最多${snap.config.maxBuyins}次买入`);
-  $("meta").innerHTML = info.map((t) => `<span class="chip">${t}</span>`).join(" ");
-  renderActions(snap);
-  queueDeals(snap);
-  renderShowdown(snap);
+  updateCountdown(snap);
 }
 
 function renderSeats(snap) {
@@ -318,7 +318,7 @@ function renderSeats(snap) {
     const pending = s.pendingChips ? ` <span class="pending">+${fmtChips(s.pendingChips)}</span>` : "";
     const broke = s.sitting && s.chips === 0 && !s.pendingChips ? " · 待补码" : "";
     el.innerHTML = `
-        <div class="avatar">${s.acting ? '<i class="timer-ring"></i>' : ""}${escapeHtml(s.nickname.slice(0, 1))}${badges}</div>
+        <div class="avatar">${s.acting ? '<i class="timer-ring"></i>' : ""}<span class="seat-initial">${escapeHtml(s.nickname.slice(0, 1))}</span><b class="seat-cd"></b>${badges}</div>
         <div class="name">${escapeHtml(s.nickname)}${squid}</div>
         <div class="stack">${fmtChips(s.chips)}${pending}${broke}</div>
         <div class="bet">${s.bet ? chipStackHTML(s.bet) : ""}</div>
@@ -433,30 +433,41 @@ function voteMsLeft(snap) {
 
 function updateCountdown(snap) {
   const el = $("countdown");
-  if (!el) return;
+  const seatCd = document.querySelector(".seat.acting .seat-cd");
+  const actingSeat = document.querySelector(".seat.acting");
+  actingSeat?.classList.remove("cd-urgent");
+
   const voteLeft = voteMsLeft(snap);
   if (voteLeft != null) {
-    el.textContent = `发牌协商 ${Math.ceil(voteLeft / 1000)}s`;
+    if (el) el.textContent = `发牌协商 ${Math.ceil(voteLeft / 1000)}s`;
+    if (seatCd) seatCd.textContent = "";
     state.lastTickSec = null;
     return;
   }
+
   const left = actionMsLeft(snap);
   if (left != null) {
-    const sec = Math.ceil(left / 1000);
-    el.textContent = `行动倒计时 ${sec}s`;
-    if (left > 0 && left <= 5000 && snap.actingPlayerId === snap.me?.id) {
-      if (state.lastTickSec !== sec) {
+    const sec = Math.max(0, Math.ceil(left / 1000));
+    if (el) el.textContent = "";
+    if (seatCd) seatCd.textContent = String(sec);
+    if (left > 0 && left <= 5000) {
+      actingSeat?.classList.add("cd-urgent");
+      if (snap.actingPlayerId === snap.me?.id && state.lastTickSec !== sec) {
         state.lastTickSec = sec;
         play("tick");
       }
     } else {
       state.lastTickSec = null;
     }
-  } else if (snap.nextHandAt && !snap.street) {
-    state.lastTickSec = null;
+    return;
+  }
+
+  if (seatCd) seatCd.textContent = "";
+  state.lastTickSec = null;
+  if (!el) return;
+  if (snap.nextHandAt && !snap.street) {
     el.textContent = `下一手 ${Math.max(0, Math.ceil((snap.nextHandAt - Date.now()) / 1000))}s`;
   } else {
-    state.lastTickSec = null;
     el.textContent = "";
   }
 }

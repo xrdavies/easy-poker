@@ -149,6 +149,27 @@ button { cursor: pointer; }
   box-shadow: 0 0 0 3px rgba(226, 192, 120, 0.35);
   animation: pulse 1s ease-in-out infinite;
 }
+.seat-cd {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: #ffe9b0;
+  text-shadow: 0 1px 4px #000;
+  z-index: 3;
+  pointer-events: none;
+  letter-spacing: -0.04em;
+}
+.seat.acting .seat-cd { display: grid; }
+.seat.acting .seat-initial { visibility: hidden; }
+.seat.acting.cd-urgent .seat-cd { color: #ff6b6b; }
+.seat.acting.cd-urgent .avatar {
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.35);
+}
 .seat.me .avatar { border-color: #7fd3ff; }
 .seat.folded { opacity: 0.45; }
 .seat.busted { opacity: 0.72; }
@@ -435,6 +456,7 @@ button { cursor: pointer; }
   }
   .seat { width: 78px; }
   .seat .avatar { width: 36px; height: 36px; font-size: 13px; }
+  .seat-cd { font-size: 15px; }
   .card { width: 42px; height: 60px; }
   .hole .card { width: 52px; height: 74px; }
   .dock {

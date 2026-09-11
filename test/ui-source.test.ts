@@ -26,6 +26,10 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /\.sd-holes/);
     assert.match(css, /\.showdown\s*\{[^}]*position:\s*fixed/s);
     assert.match(css, /\.showdown\s*\{[^}]*place-items:\s*center/s);
+    assert.match(css, /\.seat-cd/);
+    const js = read("../public/js/app.js");
+    assert.match(js, /seat-cd/);
+    assert.doesNotMatch(js, /行动倒计时/);
     assert.match(css, /orientation:\s*portrait[\s\S]*\.showdown\s*\{[\s\S]*position:\s*fixed/);
     const html = read("../public/index.html");
     assert.match(html, /<footer class="dock">[\s\S]*id="showdown"/);
