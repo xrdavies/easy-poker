@@ -35,6 +35,11 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /\.table-rules/);
     assert.match(css, /--rail-w/);
     assert.match(css, /\.hole\s*\{[^}]*grid-column:\s*2/s);
+    assert.match(css, /\.seat\.vis-0 \.bet/);
+    assert.match(css, /\.dock\s*\{[^}]*min-height/s);
+    assert.match(js, /vis-\$\{vis\}/);
+    assert.doesNotMatch(js, /STREET/);
+    assert.doesNotMatch(js, /id="btn-rebuy"/);
     assert.match(css, /orientation:\s*portrait[\s\S]*\.showdown\s*\{[\s\S]*position:\s*fixed/);
     const html = read("../public/index.html");
     assert.match(html, /id="table-rules"/);
@@ -48,7 +53,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(html, /复制邀请链接/);
     assert.doesNotMatch(html, /复制号码\+密码/);
     assert.doesNotMatch(html, /id="table-clock"/);
-    assert.match(html, /id="btn-leave"[^>]*>退出</);
+    assert.match(html, /id="btn-leave"/);
+    assert.match(html, /icon-btn/);
     assert.match(js, /clipboard\.writeText/);
     assert.match(js, /inviteUrl/);
     assert.match(js, /data-act="fold"/);

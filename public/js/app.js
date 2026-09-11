@@ -1,7 +1,5 @@
 const $ = (id) => document.getElementById(id);
 const SUIT = { c: "♣", d: "♦", h: "♥", s: "♠" };
-const STREET = { preflop: "翻牌前", flop: "翻牌", turn: "转牌", river: "河牌" };
-
 const SEATS = 8;
 const state = {
   playerId: localStorage.getItem("ep.id") || crypto.randomUUID(),
@@ -268,7 +266,7 @@ function renderTable(snap) {
     state.visualKey = key;
     renderSeats(snap);
     $("felt").classList.toggle("is-showdown", Boolean(snap.lastResult && !snap.street));
-    $("street-label").textContent = snap.lastResult && !snap.street ? "摊牌" : STREET[snap.street] || (snap.status === "waiting" ? "等待玩家" : "");
+    $("street-label").textContent = !snap.street && snap.status === "waiting" ? "等待玩家" : "";
     $("pot").innerHTML = snap.pot ? chipStackHTML(snap.pot) : `<span class="chip-amt">底池 0</span>`;
     const bannerBits = [];
     if (snap.lastResult?.winners?.length && !snap.street) {
@@ -314,6 +312,7 @@ function renderSeats(snap) {
     const el = root.children[seat];
     el.style.left = `${pos.x}%`;
     el.style.top = `${pos.y}%`;
+    for (let v = 0; v < SEATS; v++) el.classList.toggle(`vis-${v}`, v === vis);
     const s = snap.seats[seat];
     const key = s
       ? `${s.playerId}|${s.chips}|${s.pendingChips}|${s.bet}|${s.folded}|${s.acting}|${(s.holeCards || []).join("")}|${s.isButton}|${s.isSb}|${s.isBb}`
@@ -321,7 +320,7 @@ function renderSeats(snap) {
     if (el.dataset.key === key) continue;
     el.dataset.key = key;
     el.className =
-      "seat" +
+      `seat vis-${vis}` +
       (s?.acting ? " acting" : "") +
       (s?.folded ? " folded" : "") +
       (s?.chips === 0 && s?.sitting ? " busted" : "") +
@@ -537,7 +536,6 @@ function renderActions(snap) {
     if (snap.me?.holeCards && snap.lastResult && !snap.street && !snap.lastResult.shown?.[snap.me.id]) {
       extras.push(`<button type="button" data-act="show" class="ghost">亮牌</button>`);
     }
-    if (snap.me?.sitting) extras.push(`<button type="button" id="btn-rebuy" class="ghost sm">补码</button>`);
     const waitText =
       snap.lastResult && !snap.street
         ? "摊牌结算中"
@@ -797,10 +795,6 @@ $("btn-stand").onclick = () => void cmd({ type: "stand" });
 
 $("btn-rebuy-top").onclick = () => openBuyin("补码");
 $("actions").onclick = (e) => {
-  if (e.target.closest("#btn-rebuy")) {
-    openBuyin("补码");
-    return;
-  }
   const runout = e.target.closest("button[data-runout]");
   if (runout) {
     void cmd({ type: "runout", choice: runout.dataset.runout });
