@@ -33,6 +33,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /PORTRAIT_SEATS/);
     assert.match(css, /\.table-rules/);
     assert.match(css, /--rail-w/);
+    assert.match(css, /\.hole\s*\{[^}]*grid-column:\s*2/s);
     assert.match(css, /orientation:\s*portrait[\s\S]*\.showdown\s*\{[\s\S]*position:\s*fixed/);
     const html = read("../public/index.html");
     assert.match(html, /id="table-rules"/);

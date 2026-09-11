@@ -327,18 +327,36 @@ button { cursor: pointer; }
   color: transparent;
 }
 .card.tiny { width: 28px; height: 40px; padding: 3px; font-size: 11px; }
-.hole { display: flex; gap: 8px; min-width: 120px; min-height: 88px; }
+.hole {
+  display: flex;
+  gap: 8px;
+  min-width: 120px;
+  min-height: 88px;
+  grid-column: 2;
+  justify-self: center;
+  margin-top: -28px;
+  z-index: 4;
+}
 .hole .card { width: 62px; height: 88px; }
 
 .dock {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr auto 1fr;
   gap: 16px;
-  align-items: center;
+  align-items: end;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(8, 16, 24, 0.2), rgba(8, 16, 24, 0.92));
 }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; justify-self: end; }
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  grid-column: 3;
+  justify-self: end;
+  align-self: center;
+}
 .actions button { min-width: 84px; }
 .actions .fold { background: #5a1f1f; color: #ffd0d0; border: 1px solid #8a3a3a; border-radius: 12px; padding: 10px 14px; }
 .actions .check, .actions .call { background: #163a66; color: #d6e8ff; border: 1px solid #2d6db3; border-radius: 12px; padding: 10px 14px; }
@@ -496,8 +514,10 @@ button { cursor: pointer; }
     grid-template-columns: 1fr;
     justify-items: center;
     text-align: center;
+    align-items: center;
   }
-  .actions { justify-content: center; width: 100%; }
+  .hole { grid-column: auto; margin-top: 0; }
+  .actions { grid-column: auto; justify-self: center; justify-content: center; width: 100%; align-self: center; }
   .actions button { min-height: 44px; flex: 1 1 30%; }
   .topbar { padding: 8px; }
   .gate-card { margin: 3vh auto; }
