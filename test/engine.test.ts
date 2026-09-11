@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   ACTION_MS,
+  RUNOUT_VOTE_MS,
   CATEGORY,
   compareHand,
   createTable,
@@ -453,6 +454,9 @@ describe("hand / street / pots / timeout", () => {
       deck: parseCards("Ac 5c Ad 5d 2c 3d 8h 9s Kd"),
     });
     allInEveryone(table);
+    assert.ok(table.runoutVote);
+    assert.ok(table.hand);
+    table.chooseRunout("a", "once");
     assert.equal(table.hand, null);
     assert.ok(table.lastResult);
     assert.ok(table.lastResult!.winners.some((w) => w.amount > 0));
@@ -466,6 +470,8 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.players.get("b")!.chips, 0);
     assert.equal(table.nextHandAt, null);
     table.rebuy("b", 1);
+    assert.equal(table.players.get("b")!.chips, 0);
+    assert.ok((table.players.get("b")!.pendingBuyinChips ?? 0) > 0);
     assert.ok(table.nextHandAt);
     assert.equal(table.nextHandAt, clk.now() + HAND_PAUSE_MS);
     clk.add(HAND_PAUSE_MS - 1);
@@ -475,6 +481,9 @@ describe("hand / street / pots / timeout", () => {
     table.tick();
     assert.ok(table.hand);
     assert.equal(table.hand!.street, "preflop");
+    assert.equal(table.players.get("b")!.chips > 0, true);
+    assert.equal(table.players.get("b")!.pendingBuyinChips, 0);
+    assert.equal(table.players.get("b")!.inHand, true);
   });
 
   it("all-in short stack wins only the main pot, not the side pot", () => {
@@ -494,7 +503,7 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.players.get("c")!.chips, 0);
   });
 
-  it("10s timeout with injected clock folds", () => {
+  it("15s timeout with injected clock folds and shows uncontested settlement", () => {
     const { table, clk } = open();
     joinSit(table, "a", "A");
     joinSit(table, "b", "B");
@@ -511,6 +520,13 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.hand, null);
     assert.ok(table.events.some((e) => e.type === "timeout" && e.playerId === "a"));
     assert.ok(table.players.get("b")!.chips > 200 - 2);
+    assert.ok(table.lastResult);
+    assert.equal(table.lastResult!.uncontested, true);
+    assert.ok(table.lastResult!.winners.some((w) => w.id === "b" && w.amount > 0));
+    assert.ok(table.lastResult!.foldedIds.includes("a"));
+    const snap = table.snapshot("b");
+    assert.ok(snap.lastResult?.winners.some((w) => w.id === "b" && w.amount > 0));
+    assert.equal(snap.street, null);
   });
 
   it("timeout folds that player once and passes action to the next player", () => {
@@ -535,6 +551,74 @@ describe("hand / street / pots / timeout", () => {
     table.tick();
     assert.equal(table.hand!.actingPlayerId, "b");
     assert.equal(table.players.get("a")!.folded, true);
+  });
+
+  it("rebuy credits chips only when the next hand starts; busted player is not dealt in", () => {
+    const { table, clk } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    const aStart = table.players.get("a")!.chips;
+    table.startHand({ deck: parseCards("Kc Ac Kd Ad 2c 3d 4h 5s 6c") });
+    const aDuring = table.players.get("a")!.chips;
+    table.rebuy("a", 1);
+    assert.equal(table.players.get("a")!.chips, aDuring);
+    assert.equal(table.players.get("a")!.pendingBuyinChips, 200);
+    checkCall(table);
+    assert.equal(table.hand, null);
+    assert.equal(table.players.get("a")!.pendingBuyinChips, 200);
+    clk.add(HAND_PAUSE_MS);
+    table.tick();
+    assert.ok(table.hand);
+    assert.equal(table.players.get("a")!.pendingBuyinChips, 0);
+    assert.ok(table.players.get("a")!.chips >= aStart);
+
+    const three = open({ tableNumber: "BUST01" });
+    joinSit(three.table, "a", "A", 1);
+    joinSit(three.table, "b", "B", 2);
+    joinSit(three.table, "c", "C", 2);
+    three.table.startHand({
+      deck: parseCards("Kc 2h Ac Kd 3h Ad 7c 8d 9s 4c 5d"),
+    });
+    allInEveryone(three.table);
+    assert.equal(three.table.players.get("a")!.chips, 600);
+    assert.equal(three.table.players.get("c")!.chips, 0);
+    three.clk.add(HAND_PAUSE_MS);
+    three.table.tick();
+    assert.ok(three.table.hand);
+    assert.equal(three.table.players.get("c")!.inHand, false);
+    assert.equal(three.table.players.get("c")!.chips, 0);
+    assert.equal(three.table.players.get("a")!.inHand, true);
+    assert.equal(three.table.players.get("b")!.inHand, true);
+  });
+
+  it("heads-up all-in offers run-it-twice; both twice runs two boards, otherwise one", () => {
+    const { table, clk } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({ deck: parseCards("Ac 5c Ad 5d 2c 3d 8h 9s Kd 4c 6d 7h Ts 2s 3s 4s 5h") });
+    allInEveryone(table);
+    assert.ok(table.runoutVote);
+    assert.equal(table.hand?.board.length ?? 0, 0);
+    table.chooseRunout("a", "twice");
+    assert.ok(table.runoutVote);
+    table.chooseRunout("b", "twice");
+    assert.equal(table.runoutVote, null);
+    assert.equal(table.hand, null);
+    assert.equal(table.lastResult!.runs.length, 2);
+    assert.equal(table.lastResult!.runs[0]!.board.length, 5);
+    assert.equal(table.lastResult!.runs[1]!.board.length, 5);
+    assert.notDeepEqual(table.lastResult!.runs[0]!.board, table.lastResult!.runs[1]!.board);
+
+    const once = open({ tableNumber: "ONCE01" });
+    joinSit(once.table, "a", "A");
+    joinSit(once.table, "b", "B");
+    once.table.startHand({ deck: parseCards("Ac 5c Ad 5d 2c 3d 8h 9s Kd") });
+    allInEveryone(once.table);
+    once.table.chooseRunout("a", "twice");
+    once.clk.add(RUNOUT_VOTE_MS);
+    once.table.tick();
+    assert.equal(once.table.lastResult!.runs.length, 1);
+    assert.equal(once.table.lastResult!.board.length, 5);
   });
 });
 

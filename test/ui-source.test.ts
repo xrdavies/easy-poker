@@ -90,15 +90,22 @@ describe("client UI source (shipped public assets)", () => {
 
   it("ships distinct 音效 for check / raise / fold / 发牌 / 结算", () => {
     const html = read("../public/index.html");
-    for (const name of ["fold", "check", "raise", "deal", "settle"]) {
+    for (const name of ["fold", "check", "bet", "raise", "allin", "deal", "tick", "win", "lose"]) {
       assert.match(html, new RegExp(`/sounds/${name}\\.wav`));
       assert.equal(existsSync(fileURLToPath(url(`../public/sounds/${name}.wav`))), true);
     }
     const js = read("../public/js/app.js");
-    assert.match(js, /play\("fold"\)/);
-    assert.match(js, /play\("check"\)/);
-    assert.match(js, /play\("raise"\)/);
+    assert.match(js, /once\("fold"\)/);
+    assert.match(js, /once\("check"\)/);
+    assert.match(js, /once\("bet"\)/);
+    assert.match(js, /once\("raise"\)/);
+    assert.match(js, /once\("allin"\)/);
     assert.match(js, /play\("deal"\)/);
-    assert.match(js, /play\("settle"\)/);
+    assert.match(js, /play\("tick"\)/);
+    assert.match(js, /play\("win"\)/);
+    assert.match(js, /play\("lose"\)/);
+    assert.match(js, /raise-val/);
+    assert.match(js, /data-runout/);
+    assert.match(js, /actionLock/);
   });
 });

@@ -142,6 +142,7 @@ button { cursor: pointer; }
   border: 2px solid #6d5630;
   font-weight: 700;
   position: relative;
+  overflow: visible;
 }
 .seat.acting .avatar {
   border-color: var(--gold);
@@ -150,8 +151,11 @@ button { cursor: pointer; }
 }
 .seat.me .avatar { border-color: #7fd3ff; }
 .seat.folded { opacity: 0.45; }
+.seat.busted { opacity: 0.72; }
 .seat .name { font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seat .stack { font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.seat .stack .pending { color: #9ad7ff; font-size: 10px; }
+.seat.busted .stack { color: var(--danger); }
 .seat .bet {
   min-height: 28px;
   font-size: 11px;
@@ -167,11 +171,11 @@ button { cursor: pointer; }
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45));
 }
 .pchip {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  margin-left: -9px;
-  border: 2px dashed rgba(255, 255, 255, 0.78);
+  margin-left: -12px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.78);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(0, 0, 0, 0.28);
   flex: 0 0 auto;
 }
@@ -191,21 +195,39 @@ button { cursor: pointer; }
 }
 .pot .chip-stack { margin-top: 4px; }
 .pot .chip-amt { font-size: 16px; }
-.seat .tags { font-size: 10px; color: #cde7d8; min-height: 14px; }
-.dealer {
+.seat .tags { font-size: 10px; color: #cde7d8; min-height: 0; }
+.role-badge {
   position: absolute;
-  top: -4px;
-  right: 24px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  line-height: 1;
+  z-index: 4;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.role-badge.dealer {
+  top: -6px;
+  right: -6px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
   background: #f2f2f2;
   color: #222;
   font-size: 11px;
-  font-weight: 800;
-  display: grid;
-  place-items: center;
 }
+.role-badge.sb,
+.role-badge.bb,
+.role-badge.str {
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+.role-badge.sb { bottom: -7px; left: -10px; background: #2f6fbf; color: #fff; }
+.role-badge.bb { bottom: -7px; right: -10px; background: #e2c078; color: #1a1208; }
+.role-badge.str { top: -7px; left: -10px; background: #6a1b9a; color: #fff; }
 .timer-ring {
   position: absolute;
   inset: -6px;
@@ -279,7 +301,23 @@ button { cursor: pointer; }
 .actions .fold { background: #5a1f1f; color: #ffd0d0; border: 1px solid #8a3a3a; border-radius: 12px; padding: 10px 14px; }
 .actions .check, .actions .call { background: #163a66; color: #d6e8ff; border: 1px solid #2d6db3; border-radius: 12px; padding: 10px 14px; }
 .actions .raise, .actions .bet, .actions .allin { background: linear-gradient(180deg, #f0d392, #c49a45); color: #1a1208; border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; }
-.actions input[type="range"] { width: min(180px, 30vw); }
+.actions input[type="range"] { width: min(160px, 28vw); }
+.raise-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.raise-ctl output {
+  min-width: 3.2em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--gold);
+}
+.runout-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+.sd-run { margin-bottom: 8px; }
+.sd-run-label { font-size: 11px; letter-spacing: 0.16em; color: var(--gold); margin-bottom: 4px; }
+#sd-board.board { flex-direction: column; gap: 6px; min-height: 0; }
 .chip {
   display: inline-block;
   padding: 2px 8px;

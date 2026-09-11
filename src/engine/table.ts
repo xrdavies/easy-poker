@@ -7,6 +7,7 @@ import {
   HAND_PAUSE_MS,
   MAX_SEATS,
   PokerError,
+  RUNOUT_VOTE_MS,
   type ActionType,
   type Card,
   type CreateTableInput,
@@ -15,6 +16,7 @@ import {
   type LegalActions,
   type PlayerState,
   type RuntimeOpts,
+  type RunoutVote,
   type Settlement,
   type SquidState,
   type Street,
@@ -41,6 +43,7 @@ export interface TableJSON {
   nextHandNumber: number;
   bountyPaid: string[];
   nextHandAt: number | null;
+  runoutVote: RunoutVote | null;
 }
 
 export interface LastResult {
@@ -49,6 +52,9 @@ export interface LastResult {
   shown: Record<string, Card[]>;
   winners: { id: string; amount: number; handName?: string }[];
   pot: number;
+  uncontested: boolean;
+  foldedIds: string[];
+  runs: { board: Card[]; winners: { id: string; amount: number; handName?: string }[] }[];
 }
 
 export interface SeatView {
@@ -67,6 +73,7 @@ export interface SeatView {
   hasSquid: boolean;
   acting: boolean;
   inHand: boolean;
+  pendingChips: number;
 }
 
 export interface ClientSnapshot {
@@ -93,6 +100,7 @@ export interface ClientSnapshot {
     buyinCount: number;
     holeCards?: Card[];
     sitting: boolean;
+    pendingChips: number;
   } | null;
   handNumber: number;
   buttonSeat: number | null;
@@ -105,6 +113,7 @@ export interface ClientSnapshot {
   lastResult: LastResult | null;
   nextHandAt: number | null;
   invitePath: string;
+  runoutVote: RunoutVote | null;
 }
 
 export interface StartHandOpts {
@@ -139,6 +148,7 @@ function emptyPlayer(id: string, nickname: string): PlayerState {
     actedThisStreet: false,
     shown: false,
     autoStraddle: false,
+    pendingBuyinChips: 0,
   };
 }
 
@@ -161,6 +171,7 @@ export class Table {
   nextHandNumber = 1;
   nextHandAt: number | null = null;
   bountyPaid = new Set<string>();
+  runoutVote: RunoutVote | null = null;
   now: () => number;
   random: () => number;
 
@@ -179,7 +190,12 @@ export class Table {
     );
     t.status = data.status;
     t.seats = data.seats.slice();
-    t.players = new Map(data.players.map((p) => [p.id, { ...p, holeCards: p.holeCards ? p.holeCards.slice() : null }]));
+    t.players = new Map(
+      data.players.map((p) => [
+        p.id,
+        { ...p, holeCards: p.holeCards ? p.holeCards.slice() : null, pendingBuyinChips: p.pendingBuyinChips ?? 0 },
+      ]),
+    );
     t.buttonSeat = data.buttonSeat;
     t.firstDealAt = data.firstDealAt;
     t.endsAt = data.endsAt;
@@ -196,11 +212,26 @@ export class Table {
       : null;
     t.settlement = data.settlement;
     t.events = data.events.slice();
-    t.lastResult = data.lastResult;
+    t.lastResult = data.lastResult
+      ? {
+          ...data.lastResult,
+          board: data.lastResult.board.slice(),
+          winners: data.lastResult.winners.slice(),
+          shown: { ...data.lastResult.shown },
+          uncontested: data.lastResult.uncontested ?? Object.keys(data.lastResult.shown ?? {}).length === 0,
+          foldedIds: data.lastResult.foldedIds?.slice() ?? [],
+          runs: (data.lastResult.runs ?? [{ board: data.lastResult.board, winners: data.lastResult.winners }]).map(
+            (r) => ({ board: r.board.slice(), winners: r.winners.slice() }),
+          ),
+        }
+      : null;
     t.closing = data.closing;
     t.nextHandNumber = data.nextHandNumber;
     t.nextHandAt = data.nextHandAt ?? null;
     t.bountyPaid = new Set(data.bountyPaid ?? []);
+    t.runoutVote = data.runoutVote
+      ? { deadline: data.runoutVote.deadline, choices: { ...data.runoutVote.choices } }
+      : null;
     return t;
   }
 
@@ -236,6 +267,7 @@ export class Table {
       nextHandNumber: this.nextHandNumber,
       nextHandAt: this.nextHandAt,
       bountyPaid: [...this.bountyPaid],
+      runoutVote: this.runoutVote ? { deadline: this.runoutVote.deadline, choices: { ...this.runoutVote.choices } } : null,
     };
   }
 
@@ -280,9 +312,9 @@ export class Table {
     const n = Math.floor(buyinCount);
     if (p.chips <= 0) {
       if (!Number.isInteger(n) || n < 1) throw new PokerError("invalid_buyin", "坐下时需要至少 1 次 buyin");
-      this.applyBuyin(p, n);
+      this.applyBuyin(p, n, "now");
     } else if (n > 0) {
-      this.applyBuyin(p, n);
+      this.applyBuyin(p, n, "now");
     }
     const seat = empty[Math.floor(this.random() * empty.length)]!;
     p.seat = seat;
@@ -321,7 +353,7 @@ export class Table {
     this.assertNotFinished();
     const p = this.requirePlayer(playerId);
     if (!p.sitting) throw new PokerError("not_seated", "未坐下");
-    this.applyBuyin(p, n);
+    this.applyBuyin(p, n, "next");
     this.maybeScheduleNextHand();
   }
 
@@ -344,11 +376,13 @@ export class Table {
       this.settle("duration");
       throw new PokerError("table_finished", "游戏桌已结束");
     }
+    this.applyPendingBuyins();
     const eligible = this.seated().filter((p) => p.chips > 0);
     if (eligible.length < 2) throw new PokerError("need_two_players", "至少两名有筹码的玩家才能发牌");
 
     this.events = [];
     this.lastResult = null;
+    this.runoutVote = null;
     this.nextHandAt = null;
     this.bountyPaid = new Set();
     this.advanceButton(eligible);
@@ -436,14 +470,19 @@ export class Table {
     if (this.hand) return false;
     if (this.closing) return false;
     if (this.endsAt !== null && this.now() >= this.endsAt) return false;
-    return this.seated().filter((p) => p.chips > 0).length >= 2;
+    return this.seatedWithChips().length >= 2;
+  }
+
+  private seatedWithChips(): PlayerState[] {
+    return this.seated().filter((p) => p.chips + (p.pendingBuyinChips ?? 0) > 0);
   }
 
   /** Next Durable Object alarm: action clock, showdown pause, 时长 end, or the inter-hand pause. */
   nextWakeAt(nextHandDelayMs: number): number | null {
     if (this.status === "finished") return null;
     const due: number[] = [];
-    if (this.hand?.actionDeadline != null) due.push(this.hand.actionDeadline);
+    if (this.runoutVote) due.push(this.runoutVote.deadline);
+    else if (this.hand?.actionDeadline != null) due.push(this.hand.actionDeadline);
     if (!this.hand && this.nextHandAt != null && this.canStartHand()) due.push(this.nextHandAt);
     if (!this.hand && this.endsAt != null) due.push(this.endsAt);
     if (!this.hand && this.nextHandAt == null && this.canStartHand()) due.push(this.now() + nextHandDelayMs);
@@ -460,6 +499,9 @@ export class Table {
 
   tick(): void {
     if (this.status === "finished") return;
+    if (this.runoutVote && this.now() >= this.runoutVote.deadline) {
+      this.resolveRunoutVote();
+    }
     if (this.hand?.actingPlayerId && this.hand.actionDeadline !== null && this.now() >= this.hand.actionDeadline) {
       const id = this.hand.actingPlayerId;
       const p = this.players.get(id);
@@ -469,7 +511,7 @@ export class Table {
       else this.progressHand();
       if (this.hand?.actingPlayerId === id) this.progressHand();
     }
-    if (this.hand && !this.hand.actingPlayerId) this.progressHand();
+    if (this.hand && !this.hand.actingPlayerId && !this.runoutVote) this.progressHand();
     if (!this.hand && this.endsAt !== null && this.now() >= this.endsAt) {
       this.settle("duration");
       return;
@@ -512,6 +554,7 @@ export class Table {
         hasSquid: this.squid?.holders.includes(p.id) === true,
         acting: hand?.actingPlayerId === p.id,
         inHand: p.inHand,
+        pendingChips: p.pendingBuyinChips ?? 0,
       };
     });
     const spectators = [...this.players.values()]
@@ -546,6 +589,7 @@ export class Table {
             buyinCount: viewer.buyinCount,
             holeCards,
             sitting: viewer.sitting,
+            pendingChips: viewer.pendingBuyinChips ?? 0,
           }
         : null,
       handNumber: hand?.handNumber ?? this.nextHandNumber - 1,
@@ -563,10 +607,19 @@ export class Table {
             winners: this.lastResult.winners.slice(),
             pot: this.lastResult.pot,
             shown: { ...this.lastResult.shown },
+            uncontested: this.lastResult.uncontested,
+            foldedIds: this.lastResult.foldedIds.slice(),
+            runs: this.lastResult.runs.map((r) => ({
+              board: r.board.slice(),
+              winners: r.winners.slice(),
+            })),
           }
         : null,
       nextHandAt: this.nextHandAt,
       invitePath: this.getInvite().path,
+      runoutVote: this.runoutVote
+        ? { deadline: this.runoutVote.deadline, choices: { ...this.runoutVote.choices } }
+        : null,
     };
   }
 
@@ -610,7 +663,7 @@ export class Table {
     return total;
   }
 
-  private applyBuyin(p: PlayerState, n: number): void {
+  private applyBuyin(p: PlayerState, n: number, when: "now" | "next"): void {
     if (!Number.isInteger(n) || n < 1) throw new PokerError("invalid_buyin", "buyin 次数必须是正整数");
     if (!this.config.unlimitedBuyin && p.buyinCount + n > this.config.maxBuyins) {
       throw new PokerError("buyin_limit", "超过最大 buyin 次数");
@@ -618,7 +671,26 @@ export class Table {
     const chips = this.buyinChipsFor(n);
     p.buyinCount += n;
     p.buyinChips += chips;
-    p.chips += chips;
+    if (when === "now") p.chips += chips;
+    else p.pendingBuyinChips = (p.pendingBuyinChips ?? 0) + chips;
+  }
+
+  private applyPendingBuyins(): void {
+    for (const p of this.players.values()) {
+      if (p.pendingBuyinChips > 0) {
+        p.chips += p.pendingBuyinChips;
+        p.pendingBuyinChips = 0;
+      }
+    }
+  }
+
+  chooseRunout(playerId: string, choice: "once" | "twice"): void {
+    if (!this.runoutVote || !this.hand) throw new PokerError("no_runout_vote", "现在不能选择发牌次数");
+    const live = this.livePlayers();
+    if (!live.some((p) => p.id === playerId)) throw new PokerError("not_in_hand", "只有摊牌玩家可以选");
+    if (choice !== "once" && choice !== "twice") throw new PokerError("illegal_action", "无效选择");
+    this.runoutVote.choices[playerId] = choice;
+    if (choice === "once" || live.every((p) => this.runoutVote!.choices[p.id])) this.resolveRunoutVote();
   }
 
   private requirePlayer(id: string): PlayerState {
@@ -924,11 +996,43 @@ export class Table {
     this.events.push({ type: "deal" });
   }
 
+  private shouldOfferRunoutVote(): boolean {
+    if (this.runoutVote) return false;
+    const hand = this.hand;
+    if (!hand || hand.board.length >= 5) return false;
+    const live = this.livePlayers();
+    if (live.length !== 2) return false;
+    if (this.playersWhoNeedAct().length > 0) return false;
+    return live.some((p) => p.allIn || p.chips === 0);
+  }
+
+  private beginRunoutVote(): void {
+    const hand = this.hand;
+    if (!hand) return;
+    this.setActor(null);
+    this.runoutVote = { deadline: this.now() + RUNOUT_VOTE_MS, choices: {} };
+  }
+
+  private resolveRunoutVote(): void {
+    const vote = this.runoutVote;
+    this.runoutVote = null;
+    if (!this.hand) return;
+    const live = this.livePlayers();
+    const twice = Boolean(
+      vote && live.length === 2 && live.every((p) => vote.choices[p.id] === "twice"),
+    );
+    this.runoutAndShowdown(twice ? 2 : 1);
+  }
+
   private advanceStreetOrShowdown(): void {
     const hand = this.hand!;
     const live = this.livePlayers();
     if (live.length <= 1) {
       this.awardUncontested();
+      return;
+    }
+    if (this.shouldOfferRunoutVote()) {
+      this.beginRunoutVote();
       return;
     }
     const moreBetting = live.filter((p) => p.chips > 0 && !p.allIn).length >= 2;
@@ -937,7 +1041,7 @@ export class Table {
       this.dealBoard(3);
       this.resetStreetBets();
       if (moreBetting) this.beginBetting();
-      else this.runoutAndShowdown();
+      else this.runoutAndShowdown(1);
       return;
     }
     if (hand.street === "flop") {
@@ -945,7 +1049,7 @@ export class Table {
       this.dealBoard(1);
       this.resetStreetBets();
       if (moreBetting) this.beginBetting();
-      else this.runoutAndShowdown();
+      else this.runoutAndShowdown(1);
       return;
     }
     if (hand.street === "turn") {
@@ -953,27 +1057,34 @@ export class Table {
       this.dealBoard(1);
       this.resetStreetBets();
       if (moreBetting) this.beginBetting();
-      else this.showdown();
+      else this.showdownRuns(1);
       return;
     }
-    this.showdown();
+    this.showdownRuns(1);
   }
 
-  private runoutAndShowdown(): void {
+  private runoutAndShowdown(times: number): void {
     const hand = this.hand!;
-    while (hand.board.length < 5) {
-      if (hand.board.length === 0) {
-        hand.street = "flop";
-        this.dealBoard(3);
-      } else if (hand.board.length === 3) {
-        hand.street = "turn";
-        this.dealBoard(1);
-      } else {
-        hand.street = "river";
-        this.dealBoard(1);
+    const shared = hand.board.slice();
+    const runs: Card[][] = [];
+    const n = times < 2 ? 1 : 2;
+    for (let i = 0; i < n; i++) {
+      hand.board = shared.slice();
+      while (hand.board.length < 5) {
+        if (hand.board.length === 0) {
+          hand.street = "flop";
+          this.dealBoard(3);
+        } else if (hand.board.length === 3) {
+          hand.street = "turn";
+          this.dealBoard(1);
+        } else {
+          hand.street = "river";
+          this.dealBoard(1);
+        }
       }
+      runs.push(hand.board.slice());
     }
-    this.showdown();
+    this.showdownRuns(n, runs);
   }
 
   private awardUncontested(): void {
@@ -1004,7 +1115,8 @@ export class Table {
     this.finishHand(awards, potTotal, false);
   }
 
-  private showdown(): void {
+  private showdownRuns(times: number, boards?: Card[][]): void {
+    const hand = this.hand!;
     const live = this.livePlayers();
     for (const p of live) p.shown = true;
     const committed = new Map<string, number>();
@@ -1014,32 +1126,57 @@ export class Table {
     const folded = new Set([...this.players.values()].filter((p) => p.folded || !p.inHand).map((p) => p.id));
     const { refunds, pots } = buildSidePots(committed, folded);
     this.applyRefunds(refunds);
-    const values = new Map<string, HandValue>();
-    const board = this.hand!.board;
-    for (const p of live) {
-      values.set(p.id, evaluateBest([...(p.holeCards ?? []), ...board]));
-    }
+    const runBoards = boards && boards.length > 0 ? boards : [hand.board.slice()];
+    const runCount = Math.max(1, times, runBoards.length);
     const order = this.orderFromButton();
-    const awards = new Map<string, number>();
+    const combined = new Map<string, number>();
+    let lastValues = new Map<string, HandValue>();
+    const runs: LastResult["runs"] = [];
     let potTotal = 0;
     const mainAwardedTo = new Set<string>();
-    pots.forEach((pot, idx) => {
-      potTotal += pot.amount;
-      const contenders = pot.eligible.filter((id) => values.has(id));
-      if (contenders.length === 0) return;
-      let best = values.get(contenders[0]!)!;
-      for (const id of contenders) {
-        const v = values.get(id)!;
-        if (compareHand(v, best) > 0) best = v;
+
+    for (let ri = 0; ri < runBoards.length; ri++) {
+      const board = runBoards[ri]!;
+      const values = new Map<string, HandValue>();
+      for (const p of live) {
+        values.set(p.id, evaluateBest([...(p.holeCards ?? []), ...board]));
       }
-      const winners = contenders.filter((id) => compareHand(values.get(id)!, best) === 0);
-      const split = splitOddChips(pot.amount, winners, order);
-      for (const [id, amt] of split) awards.set(id, (awards.get(id) ?? 0) + amt);
-      if (idx === 0 && winners.length === 1) mainAwardedTo.add(winners[0]!);
-    });
-    this.payAwards(awards);
-    for (const [id, amt] of awards) {
-      const v = values.get(id);
+      lastValues = values;
+      const runAwards = new Map<string, number>();
+      pots.forEach((pot, idx) => {
+        const base = Math.floor(pot.amount / runCount);
+        const extra = ri === 0 ? pot.amount % runCount : 0;
+        const amt = base + extra;
+        if (ri === 0) potTotal += pot.amount;
+        const contenders = pot.eligible.filter((id) => values.has(id));
+        if (contenders.length === 0) return;
+        let best = values.get(contenders[0]!)!;
+        for (const id of contenders) {
+          const v = values.get(id)!;
+          if (compareHand(v, best) > 0) best = v;
+        }
+        const winners = contenders.filter((id) => compareHand(values.get(id)!, best) === 0);
+        const split = splitOddChips(amt, winners, order);
+        for (const [id, a] of split) {
+          runAwards.set(id, (runAwards.get(id) ?? 0) + a);
+          combined.set(id, (combined.get(id) ?? 0) + a);
+        }
+        if (idx === 0 && winners.length === 1) mainAwardedTo.add(winners[0]!);
+      });
+      runs.push({
+        board: board.slice(),
+        winners: [...runAwards.entries()].map(([id, amount]) => ({
+          id,
+          amount,
+          handName: values.get(id) ? rankName(values.get(id)!) : undefined,
+        })),
+      });
+    }
+
+    this.hand!.board = runBoards[runBoards.length - 1]!.slice();
+    this.payAwards(combined);
+    for (const [id, amt] of combined) {
+      const v = lastValues.get(id);
       this.events.push({
         type: "win",
         playerId: id,
@@ -1047,13 +1184,13 @@ export class Table {
         message: v ? rankName(v) : undefined,
       });
     }
-    if (mainAwardedTo.size === 1) {
+    if (runBoards.length === 1 && mainAwardedTo.size === 1) {
       this.applySquid([...mainAwardedTo][0]!);
     }
     for (const p of live) {
-      if (p.shown && (awards.get(p.id) ?? 0) > 0) this.maybePayBounty(p, true);
+      if (p.shown && (combined.get(p.id) ?? 0) > 0) this.maybePayBounty(p, true);
     }
-    this.finishHand(awards, potTotal, true, values);
+    this.finishHand(combined, potTotal, true, lastValues, runs);
   }
 
   private orderFromButton(): string[] {
@@ -1178,25 +1315,41 @@ export class Table {
     this.squid = seatedIds.length >= 2 ? { participants: seatedIds, holders: [] } : null;
   }
 
-  private finishHand(awards: Map<string, number>, potTotal: number, revealed: boolean, values?: Map<string, HandValue>): void {
+  private finishHand(
+    awards: Map<string, number>,
+    potTotal: number,
+    revealed: boolean,
+    values?: Map<string, HandValue>,
+    runs?: LastResult["runs"],
+  ): void {
     const shown: Record<string, Card[]> = {};
     if (revealed) {
       for (const p of this.players.values()) {
         if (p.shown && p.holeCards) shown[p.id] = p.holeCards.slice();
       }
     }
+    const foldedIds = [...this.players.values()].filter((p) => p.folded).map((p) => p.id);
     const winners = [...awards.entries()].map(([id, amount]) => ({
       id,
       amount,
       handName: values?.get(id) ? rankName(values.get(id)!) : undefined,
     }));
+    const board = this.hand?.board.slice() ?? [];
+    const runList =
+      runs && runs.length
+        ? runs
+        : [{ board: board.slice(), winners: winners.map((w) => ({ ...w })) }];
     this.lastResult = {
       handNumber: this.nextHandNumber - 1,
-      board: this.hand?.board.slice() ?? [],
+      board,
       shown,
       winners,
       pot: potTotal,
+      uncontested: !revealed,
+      foldedIds,
+      runs: runList,
     };
+    this.runoutVote = null;
     this.events.push({ type: "settle" });
     for (const p of this.players.values()) {
       p.inHand = false;
@@ -1217,7 +1370,7 @@ export class Table {
 
   private maybeScheduleNextHand(): void {
     if (this.status === "finished" || this.hand) return;
-    if (this.seated().filter((p) => p.chips > 0).length < 2) {
+    if (this.seatedWithChips().length < 2) {
       this.nextHandAt = null;
       return;
     }
@@ -1240,6 +1393,7 @@ export class Table {
   }
 
   private settle(reason: Settlement["reason"]): void {
+    this.applyPendingBuyins();
     const players = [...this.players.values()]
       .filter((p) => p.buyinChips > 0 || p.chips > 0)
       .map((p) => ({
@@ -1269,4 +1423,4 @@ export { randomNickname } from "./names.ts";
 export { newPlayerId } from "./names.ts";
 export { evaluate7, evaluateBest, compareHand, rankName, CATEGORY } from "./rank.ts";
 export { freshDeck, parseCard, parseCards, shuffle, isSevenDeuceOffsuit } from "./cards.ts";
-export { ACTION_MS, DURATION_MINUTES, HAND_PAUSE_MS, PokerError } from "./types.ts";
+export { ACTION_MS, DURATION_MINUTES, HAND_PAUSE_MS, PokerError, RUNOUT_VOTE_MS } from "./types.ts";

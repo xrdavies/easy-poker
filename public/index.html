@@ -74,6 +74,7 @@
             <button type="button" id="btn-copy-link" class="ghost sm">复制邀请链接</button>
             <button type="button" id="btn-copy-code" class="ghost sm">复制号码+密码</button>
             <button type="button" id="btn-sit" class="primary sm">坐下</button>
+            <button type="button" id="btn-rebuy-top" class="ghost sm hidden">补码</button>
             <button type="button" id="btn-stand" class="ghost sm hidden">起身</button>
             <button type="button" id="btn-leave" class="ghost sm">退出游戏桌</button>
           </div>
@@ -99,7 +100,7 @@
         </footer>
         <div id="showdown" class="showdown hidden">
           <div class="sd-panel">
-            <div class="sd-kicker">本手结算</div>
+            <div class="sd-kicker" id="sd-kicker">本手结算</div>
             <div id="sd-board" class="board"></div>
             <div id="sd-players" class="sd-players"></div>
             <div id="sd-win" class="sd-win"></div>
@@ -123,7 +124,7 @@
     <div id="modal" class="modal hidden">
       <div class="modal-card">
         <h3>补充筹码</h3>
-        <p class="muted">每次 buy-in = 100 大盲。坐下后筹码只在本桌有效。</p>
+        <p class="muted">每次 buy-in = 100 大盲。补码在下一手开始时到账，本手不会立刻增加筹码。</p>
         <label class="field">
           <span>buy-in 次数</span>
           <input id="buyin-n" type="number" min="1" value="1" />
@@ -139,9 +140,13 @@
 
     <audio id="sfx-fold" src="/sounds/fold.wav" preload="auto"></audio>
     <audio id="sfx-check" src="/sounds/check.wav" preload="auto"></audio>
+    <audio id="sfx-bet" src="/sounds/bet.wav" preload="auto"></audio>
     <audio id="sfx-raise" src="/sounds/raise.wav" preload="auto"></audio>
+    <audio id="sfx-allin" src="/sounds/allin.wav" preload="auto"></audio>
     <audio id="sfx-deal" src="/sounds/deal.wav" preload="auto"></audio>
-    <audio id="sfx-settle" src="/sounds/settle.wav" preload="auto"></audio>
+    <audio id="sfx-tick" src="/sounds/tick.wav" preload="auto"></audio>
+    <audio id="sfx-win" src="/sounds/win.wav" preload="auto"></audio>
+    <audio id="sfx-lose" src="/sounds/lose.wav" preload="auto"></audio>
     <script type="module" src="/js/app.js"></script>
   </body>
 </html>

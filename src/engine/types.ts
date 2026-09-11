@@ -1,6 +1,7 @@
 export const MAX_SEATS = 8;
-export const ACTION_MS = 10_000;
+export const ACTION_MS = 15_000;
 export const HAND_PAUSE_MS = 5_000;
+export const RUNOUT_VOTE_MS = 5_000;
 export const DURATION_MINUTES = [30, 60, 120, 240, 480] as const;
 export type DurationMinutes = (typeof DURATION_MINUTES)[number];
 
@@ -56,6 +57,12 @@ export interface PlayerState {
   actedThisStreet: boolean;
   shown: boolean;
   autoStraddle: boolean;
+  pendingBuyinChips: number;
+}
+
+export interface RunoutVote {
+  deadline: number;
+  choices: Record<string, "once" | "twice">;
 }
 
 export interface SidePot {

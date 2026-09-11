@@ -143,6 +143,9 @@ export class TableDO {
         case "rebuy":
           table.rebuy(playerId, Number(body.buyinCount ?? 1));
           break;
+        case "runout":
+          table.chooseRunout(playerId, body.choice === "twice" ? "twice" : "once");
+          break;
         case "action":
           table.action(playerId, {
             type: body.action as ActionInput["type"],

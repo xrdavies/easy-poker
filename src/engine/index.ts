@@ -8,6 +8,7 @@ export {
   evaluateBest,
   freshDeck,
   HAND_PAUSE_MS,
+  RUNOUT_VOTE_MS,
   isSevenDeuceOffsuit,
   newPlayerId,
   parseCard,
