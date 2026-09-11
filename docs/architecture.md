@@ -1,14 +1,16 @@
 # 技术架构
 
-易扑克是一个部署在 Cloudflare Workers 上的全栈应用：同一个 Worker 既托管浏览器 UI（静态资源），也托管游戏 API / WebSocket。每张游戏桌对应一个 Durable Object 实例，作为该桌的唯一权威。
+易扑克是一个部署在 Cloudflare Workers 上的全栈应用：**前端 Worker** 托管浏览器 UI，**API Worker** 托管游戏 HTTP / WebSocket。每张游戏桌对应 API Worker 上的一个 Durable Object 实例，作为该桌的唯一权威。
 
 ## 组件
 
 ```
 浏览器
-  └─ public/（HTML/CSS/JS/音效）  ← Worker ASSETS 绑定
-  └─ WebSocket / HTTPS
-        └─ Worker (src/index.ts)
+  └─ public/（HTML/CSS/JS/音效）  ← 前端 Worker easy-poker（wrangler.web.toml）
+        GET /config.json          → { apiOrigin }
+        GET /                     → 页面
+  └─ HTTPS / WebSocket（跨域）
+        └─ API Worker easy-poker-api（wrangler.toml）
               ├─ POST /api/tables  创建桌，idFromName(桌号) 路由到 DO
               ├─ POST /api/join    号码+密码加入
               ├─ POST /api/cmd     坐下 / 行动 / 起身 …
@@ -17,6 +19,8 @@
                     └─ TableDO (src/table-do.ts)
                           └─ src/engine/*  纯牌局引擎
 ```
+
+两个 Worker 分开部署。浏览器打开前端地址；接口和实时连接打到 API 地址。API 对前端 Origin 返回 CORS 头。邀请链接始终用前端域名生成 `/?t=桌号&p=密码`。
 
 ## 纯引擎（`src/engine`）
 
@@ -35,8 +39,8 @@ Durable Object 用 `storage.put("table", table.toJSON())` 持久化。行动截�
 
 ## 前端
 
-`public/` 为单页：大厅（昵称 / 创建 / 加入）→ 牌桌 → 结算。CSS 用横屏桌面与竖屏手机两套布局。音效为 `public/sounds/*.wav`（弃牌 / 过牌 / 加注 / 发牌 / 结算）。发牌与座位高亮使用 CSS 动画。
+`public/` 为单页：大厅（昵称 / 创建 / 加入）→ 牌桌 → 结算。启动时请求 `/config.json` 得到 `apiOrigin`，随后 HTTP 与 WebSocket 都打到 API Worker。CSS 用横屏桌面与竖屏手机两套布局。音效为 `public/sounds/*.wav`（弃牌 / 过牌 / 加注 / 发牌 / 结算）。发牌与座位高亮使用 CSS 动画。
 
 ## 非目标（刻意不做）
 
-短牌、锦标赛、账户体系、大厅匹配、把 UI 单独放到 Pages 而 Worker 只做 API。
+短牌、锦标赛、账户体系、大厅匹配、把 UI 放到 Cloudflare Pages。

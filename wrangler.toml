@@ -1,13 +1,8 @@
-name = "easy-poker"
+# API + Durable Objects. Static UI lives in wrangler.web.toml.
+name = "easy-poker-api"
 main = "src/index.ts"
 compatibility_date = "2025-09-11"
 workers_dev = true
-
-[assets]
-directory = "./public"
-binding = "ASSETS"
-not_found_handling = "single-page-application"
-run_worker_first = true
 
 [durable_objects]
 bindings = [{ name = "TABLE", class_name = "TableDO" }]

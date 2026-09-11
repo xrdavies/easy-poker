@@ -44,6 +44,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(js, /\brequire\s*\(/);
     assert.doesNotMatch(js, /\bmodule\.exports\b/);
     assert.match(js, /new WebSocket/);
+    assert.match(js, /getApiOrigin/);
+    assert.match(js, /config\.json/);
     assert.match(js, /document\.getElementById/);
     assert.match(js, /chipStackHTML/);
     assert.match(html, /Easy Poker/);
@@ -61,18 +63,29 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /left === 0/);
   });
 
-  it("Worker config hosts both UI assets and the game server", () => {
-    const toml = read("../wrangler.toml");
-    assert.match(toml, /\[assets\]/);
-    assert.match(toml, /directory = "\.\/public"/);
-    assert.match(toml, /class_name = "TableDO"/);
+  it("splits UI and API across two Workers", () => {
+    const apiToml = read("../wrangler.toml");
+    const webToml = read("../wrangler.web.toml");
+    assert.match(apiToml, /name = "easy-poker-api"/);
+    assert.match(apiToml, /class_name = "TableDO"/);
+    assert.doesNotMatch(apiToml, /\[assets\]/);
+    assert.match(webToml, /name = "easy-poker"/);
+    assert.match(webToml, /\[assets\]/);
+    assert.match(webToml, /directory = "\.\/public"/);
     const index = read("../src/index.ts");
-    assert.match(index, /env\.ASSETS\.fetch/);
+    assert.doesNotMatch(index, /env\.ASSETS/);
+    assert.match(index, /Access-Control-Allow-Origin/);
     assert.match(index, /\/ws/);
     assert.match(index, /\/api\/tables/);
+    const web = read("../src/web.ts");
+    assert.match(web, /ASSETS\.fetch/);
+    assert.match(web, /config\.json/);
+    assert.match(web, /wrong_worker/);
     const docs = [read("../README.md"), read("../docs/architecture.md"), read("../docs/deploy.md")].join("\n");
     assert.match(docs, /wrangler/i);
     assert.match(docs, /Durable Object/);
+    assert.match(docs, /easy-poker-api/);
+    assert.match(docs, /两个 Worker/);
   });
 
   it("ships distinct 音效 for check / raise / fold / 发牌 / 结算", () => {

@@ -4,7 +4,6 @@ import type { CreateTableInput } from "./engine/types.ts";
 
 export interface Env {
   TABLE: DurableObjectNamespace;
-  ASSETS: Fetcher;
 }
 
 const NEXT_HAND_MS = 2800;

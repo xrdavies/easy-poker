@@ -19,6 +19,8 @@ const state = {
   dealQueue: [],
   dealBusy: false,
   showdownHand: null,
+  apiOrigin: "",
+  wsConnecting: false,
 };
 
 localStorage.setItem("ep.id", state.playerId);
@@ -92,8 +94,40 @@ function chipStackHTML(amount) {
   return `<div class="chip-stack" title="${fmtChips(amount)}">${pieces.slice(0, 14).join("")}<span class="chip-amt">${fmtChips(amount)}</span></div>`;
 }
 
+function inferApiOrigin() {
+  const host = location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return `${location.protocol}//${host}:8789`;
+  if (host.endsWith(".workers.dev") && host.startsWith("easy-poker.")) {
+    return `${location.protocol}//${host.replace(/^easy-poker\./, "easy-poker-api.")}`;
+  }
+  return location.origin;
+}
+
+let apiOriginPromise = null;
+
+async function getApiOrigin() {
+  if (state.apiOrigin) return state.apiOrigin;
+  if (!apiOriginPromise) {
+    apiOriginPromise = (async () => {
+      try {
+        const r = await fetch("/config.json", { cache: "no-store" });
+        if (r.ok) {
+          const j = await r.json();
+          if (j && typeof j.apiOrigin === "string" && j.apiOrigin) return j.apiOrigin.replace(/\/$/, "");
+        }
+      } catch {
+        /* fall through to convention */
+      }
+      return inferApiOrigin();
+    })();
+  }
+  state.apiOrigin = await apiOriginPromise;
+  return state.apiOrigin;
+}
+
 async function api(path, body) {
-  const res = await fetch(path, {
+  const origin = await getApiOrigin();
+  const res = await fetch(`${origin}${path}`, {
     method: body ? "POST" : "GET",
     headers: body ? { "content-type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -393,21 +427,33 @@ async function cmd(payload) {
   applySnapshot(data.snapshot);
 }
 
-function connectWs() {
+async function connectWs() {
   if (!state.tableNumber) return;
-  if (state.ws && state.ws.readyState === WebSocket.OPEN) return;
-  const proto = location.protocol === "https:" ? "wss" : "ws";
-  const ws = new WebSocket(`${proto}://${location.host}/ws?table=${encodeURIComponent(state.tableNumber)}&playerId=${encodeURIComponent(state.playerId)}`);
-  state.ws = ws;
-  ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data);
-    if (msg.type === "state") applySnapshot(msg.snapshot);
-    if (msg.type === "error") toast(msg.message || msg.code);
-  };
-  ws.onclose = () => {
+  if (state.wsConnecting) return;
+  if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) return;
+  state.wsConnecting = true;
+  try {
+    const origin = await getApiOrigin();
     if (!state.tableNumber) return;
-    setTimeout(connectWs, 1200);
-  };
+    if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) return;
+    const u = new URL(origin);
+    const proto = u.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(
+      `${proto}://${u.host}/ws?table=${encodeURIComponent(state.tableNumber)}&playerId=${encodeURIComponent(state.playerId)}`,
+    );
+    state.ws = ws;
+    ws.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "state") applySnapshot(msg.snapshot);
+      if (msg.type === "error") toast(msg.message || msg.code);
+    };
+    ws.onclose = () => {
+      if (!state.tableNumber) return;
+      setTimeout(() => void connectWs(), 1200);
+    };
+  } finally {
+    state.wsConnecting = false;
+  }
 }
 
 function showLobby() {
