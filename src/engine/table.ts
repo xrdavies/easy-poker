@@ -4,6 +4,7 @@ import { buildSidePots, splitOddChips } from "./pots.ts";
 import { compareHand, evaluateBest, rankName, type HandValue } from "./rank.ts";
 import {
   ACTION_MS,
+  HAND_PAUSE_MS,
   MAX_SEATS,
   PokerError,
   type ActionType,
@@ -39,6 +40,7 @@ export interface TableJSON {
   closing: boolean;
   nextHandNumber: number;
   bountyPaid: string[];
+  nextHandAt: number | null;
 }
 
 export interface LastResult {
@@ -100,6 +102,7 @@ export interface ClientSnapshot {
   settlement: Settlement | null;
   events: GameEvent[];
   lastResult: LastResult | null;
+  nextHandAt: number | null;
   invitePath: string;
 }
 
@@ -155,6 +158,7 @@ export class Table {
   lastResult: LastResult | null = null;
   closing = false;
   nextHandNumber = 1;
+  nextHandAt: number | null = null;
   bountyPaid = new Set<string>();
   now: () => number;
   random: () => number;
@@ -194,6 +198,7 @@ export class Table {
     t.lastResult = data.lastResult;
     t.closing = data.closing;
     t.nextHandNumber = data.nextHandNumber;
+    t.nextHandAt = data.nextHandAt ?? null;
     t.bountyPaid = new Set(data.bountyPaid ?? []);
     return t;
   }
@@ -228,6 +233,7 @@ export class Table {
       lastResult: this.lastResult,
       closing: this.closing,
       nextHandNumber: this.nextHandNumber,
+      nextHandAt: this.nextHandAt,
       bountyPaid: [...this.bountyPaid],
     };
   }
@@ -282,6 +288,7 @@ export class Table {
     p.sitting = true;
     this.seats[seat] = p.id;
     this.maybeJoinSquid(p.id);
+    this.maybeScheduleNextHand();
     return seat;
   }
 
@@ -306,6 +313,7 @@ export class Table {
     p.sitting = false;
     p.seat = null;
     p.inHand = false;
+    if (!this.canStartHand()) this.nextHandAt = null;
   }
 
   rebuy(playerId: string, n: number): void {
@@ -313,6 +321,7 @@ export class Table {
     const p = this.requirePlayer(playerId);
     if (!p.sitting) throw new PokerError("not_seated", "未坐下");
     this.applyBuyin(p, n);
+    this.maybeScheduleNextHand();
   }
 
   setAutoStraddle(playerId: string, on: boolean): void {
@@ -339,6 +348,7 @@ export class Table {
 
     this.events = [];
     this.lastResult = null;
+    this.nextHandAt = null;
     this.bountyPaid = new Set();
     this.advanceButton(eligible);
     const participants = this.seated().filter((p) => p.chips > 0);
@@ -428,13 +438,14 @@ export class Table {
     return this.seated().filter((p) => p.chips > 0).length >= 2;
   }
 
-  /** Next Durable Object alarm: action clock, 时长 end (between hands), or the inter-hand pause. */
+  /** Next Durable Object alarm: action clock, showdown pause, 时长 end, or the inter-hand pause. */
   nextWakeAt(nextHandDelayMs: number): number | null {
     if (this.status === "finished") return null;
     const due: number[] = [];
     if (this.hand?.actionDeadline != null) due.push(this.hand.actionDeadline);
+    if (!this.hand && this.nextHandAt != null && this.canStartHand()) due.push(this.nextHandAt);
     if (!this.hand && this.endsAt != null) due.push(this.endsAt);
-    if (this.canStartHand()) due.push(this.now() + nextHandDelayMs);
+    if (!this.hand && this.nextHandAt == null && this.canStartHand()) due.push(this.now() + nextHandDelayMs);
     return due.length ? Math.min(...due) : null;
   }
 
@@ -452,8 +463,13 @@ export class Table {
       this.events.push({ type: "timeout", playerId: id });
       this.applyAction(id, { type: "fold" });
     }
+    if (this.hand && !this.hand.actingPlayerId) this.progressHand();
     if (!this.hand && this.endsAt !== null && this.now() >= this.endsAt) {
       this.settle("duration");
+      return;
+    }
+    if (!this.hand && this.nextHandAt != null && this.now() >= this.nextHandAt && this.canStartHand()) {
+      this.startHand();
     }
   }
 
@@ -542,6 +558,7 @@ export class Table {
             shown: { ...this.lastResult.shown },
           }
         : null,
+      nextHandAt: this.nextHandAt,
       invitePath: this.getInvite().path,
     };
   }
@@ -705,6 +722,10 @@ export class Table {
         ? (hand.straddleSeat ?? hand.bbSeat)
         : hand.buttonSeat;
     const actor = this.nextActor(startFrom);
+    if (!actor) {
+      this.advanceStreetOrShowdown();
+      return;
+    }
     this.setActor(actor);
   }
 
@@ -849,7 +870,29 @@ export class Table {
       return;
     }
     const from = this.hand!.actorSeat ?? this.hand!.buttonSeat;
-    this.setActor(this.nextActor(from));
+    const next = this.nextActor(from);
+    if (!next) {
+      this.advanceStreetOrShowdown();
+      return;
+    }
+    this.setActor(next);
+  }
+
+  private progressHand(): void {
+    if (!this.hand) return;
+    const live = this.livePlayers();
+    if (live.length <= 1) {
+      this.awardUncontested();
+      return;
+    }
+    if (this.playersWhoNeedAct().length === 0) {
+      this.advanceStreetOrShowdown();
+      return;
+    }
+    const from = this.hand.actorSeat ?? this.hand.buttonSeat;
+    const next = this.nextActor(from);
+    if (next) this.setActor(next);
+    else this.advanceStreetOrShowdown();
   }
 
   private resetStreetBets(): void {
@@ -1157,8 +1200,20 @@ export class Table {
     }
     this.hand = null;
     if (this.closing || (this.endsAt !== null && this.now() >= this.endsAt)) {
+      this.nextHandAt = null;
       this.settle("duration");
+      return;
     }
+    this.maybeScheduleNextHand();
+  }
+
+  private maybeScheduleNextHand(): void {
+    if (this.status === "finished" || this.hand) return;
+    if (this.seated().filter((p) => p.chips > 0).length < 2) {
+      this.nextHandAt = null;
+      return;
+    }
+    if (this.nextHandAt == null) this.nextHandAt = this.now() + HAND_PAUSE_MS;
   }
 
   private abortHandRefund(): void {
@@ -1189,6 +1244,7 @@ export class Table {
     this.settlement = { players, endedAt: this.now(), reason };
     this.status = "finished";
     this.hand = null;
+    this.nextHandAt = null;
     this.closing = true;
   }
 }
@@ -1205,4 +1261,4 @@ export { randomNickname } from "./names.ts";
 export { newPlayerId } from "./names.ts";
 export { evaluate7, evaluateBest, compareHand, rankName, CATEGORY } from "./rank.ts";
 export { freshDeck, parseCard, parseCards, shuffle, isSevenDeuceOffsuit } from "./cards.ts";
-export { ACTION_MS, DURATION_MINUTES, PokerError } from "./types.ts";
+export { ACTION_MS, DURATION_MINUTES, HAND_PAUSE_MS, PokerError } from "./types.ts";

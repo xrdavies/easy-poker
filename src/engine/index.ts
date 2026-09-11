@@ -7,6 +7,7 @@ export {
   evaluate7,
   evaluateBest,
   freshDeck,
+  HAND_PAUSE_MS,
   isSevenDeuceOffsuit,
   newPlayerId,
   parseCard,

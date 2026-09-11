@@ -1,4 +1,4 @@
-# 易扑克 · Easy Poker
+# Easy Poker
 
 多人在线德州扑克（长牌现金桌）。前端页面和游戏权威服务都运行在 **Cloudflare Worker** 上，用 Durable Object 作为每一张游戏桌的实时房间。
 

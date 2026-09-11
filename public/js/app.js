@@ -55,7 +55,28 @@ function fmtMs(ms) {
 
 function seatPos(i) {
   const theta = Math.PI / 2 + i * ((2 * Math.PI) / 10);
-  return { x: 50 + 42 * Math.cos(theta), y: 50 + 36 * Math.sin(theta) };
+  return { x: 50 + 44 * Math.cos(theta), y: 50 + 40 * Math.sin(theta) };
+}
+
+const CHIP_DENOMS = [
+  { v: 500, cls: "c500" },
+  { v: 100, cls: "c100" },
+  { v: 25, cls: "c25" },
+  { v: 5, cls: "c5" },
+  { v: 1, cls: "c1" },
+];
+
+function chipStackHTML(amount) {
+  if (!amount) return "";
+  let left = Math.max(0, Math.floor(amount));
+  const pieces = [];
+  for (const d of CHIP_DENOMS) {
+    const n = Math.min(7, Math.floor(left / d.v));
+    left -= n * d.v;
+    for (let i = 0; i < n; i++) pieces.push(`<i class="pchip ${d.cls}"></i>`);
+  }
+  if (!pieces.length && amount > 0) pieces.push(`<i class="pchip c1"></i>`);
+  return `<div class="chip-stack" title="${fmtChips(amount)}">${pieces.slice(0, 14).join("")}<span class="chip-amt">${fmtChips(amount)}</span></div>`;
 }
 
 async function api(path, body) {
@@ -129,20 +150,22 @@ function renderTable(snap) {
       ]
         .filter(Boolean)
         .join(" ");
-      const holes = s.holeCards?.map((c) => cardHTML(c, "tiny")).join("") ?? "";
+      const holes =
+        s.holeCards && s.playerId !== snap.me?.id ? s.holeCards.map((c) => cardHTML(c, "tiny")).join("") : "";
       div.innerHTML = `
         <div class="avatar">${s.acting ? '<i class="timer-ring"></i>' : ""}${s.nickname.slice(0, 1)}${s.isButton ? '<i class="dealer">D</i>' : ""}</div>
         <div class="name">${escapeHtml(s.nickname)}</div>
         <div class="stack">${fmtChips(s.chips)}</div>
-        <div class="bet">${s.bet ? `下注 ${fmtChips(s.bet)}` : ""}</div>
+        <div class="bet">${s.bet ? chipStackHTML(s.bet) : ""}</div>
         <div class="tags">${tags}</div>
         <div class="seat-cards">${holes}</div>`;
     }
     seatsEl.appendChild(div);
   }
 
-  $("street-label").textContent = STREET[snap.street] || (snap.status === "waiting" ? "等待玩家" : "");
-  $("pot").textContent = `底池 ${fmtChips(snap.pot || 0)}`;
+  $("felt").classList.toggle("is-showdown", Boolean(snap.lastResult && !snap.street));
+  $("street-label").textContent = snap.lastResult && !snap.street ? "摊牌" : STREET[snap.street] || (snap.status === "waiting" ? "等待玩家" : "");
+  $("pot").innerHTML = snap.pot ? chipStackHTML(snap.pot) : `<span class="chip-amt">底池 0</span>`;
   const board = $("board");
   board.innerHTML = snap.board.map((c) => cardHTML(c)).join("");
   if (snap.board.length !== state.lastBoard) {
@@ -154,7 +177,18 @@ function renderTable(snap) {
     bannerBits.push(`行动倒计时 ${Math.ceil(left / 1000)}s`);
   }
   if (snap.lastResult?.winners?.length && !snap.street) {
-    bannerBits.push(snap.lastResult.winners.map((w) => `${nameOf(snap, w.id)} +${w.amount}${w.handName ? " · " + w.handName : ""}`).join("　"));
+    bannerBits.push(
+      snap.lastResult.winners
+        .filter((w) => w.amount > 0)
+        .map((w) => `${nameOf(snap, w.id)} 赢得 ${fmtChips(w.amount)}${w.handName ? " · " + w.handName : ""}`)
+        .join("　"),
+    );
+    if (snap.nextHandAt) {
+      const wait = Math.max(0, snap.nextHandAt - Date.now());
+      bannerBits.push(`下一手 ${Math.ceil(wait / 1000)}s`);
+    } else if (snap.me?.sitting && snap.me.chips === 0) {
+      bannerBits.push("筹码为 0，请补码后继续");
+    }
   }
   $("banner").textContent = bannerBits.join(" · ");
 
@@ -183,7 +217,11 @@ function renderActions(snap) {
     if (snap.me?.holeCards && snap.lastResult && !snap.street) {
       extras.push(`<button type="button" data-act="show" class="ghost">亮牌</button>`);
     }
-    box.innerHTML = extras.join("") || `<span class="muted">${snap.me?.sitting ? "等待行动" : "观战中，坐下后可参与下一手"}</span>`;
+    if (snap.me?.sitting && snap.me.chips === 0) {
+      extras.push(`<button type="button" id="btn-rebuy" class="primary sm">补码</button>`);
+    }
+    const waitText = snap.lastResult && !snap.street ? "摊牌结算中" : snap.me?.sitting ? "等待行动" : "观战中，坐下后可参与下一手";
+    box.innerHTML = extras.join("") || `<span class="muted">${waitText}</span>`;
     return;
   }
   const parts = [];
@@ -332,26 +370,38 @@ $("btn-copy-link").onclick = () => copy(inviteUrl(), "邀请链接已复制");
 $("btn-copy-code").onclick = () => copy(`游戏桌 ${state.tableNumber} 密码 ${state.password}`, "号码和密码已复制");
 $("btn-copy-link-2").onclick = () => copy(inviteUrl(), "邀请链接已复制");
 
+function openBuyin(okLabel) {
+  const snap = state.snapshot;
+  const max = snap?.config.unlimitedBuyin ? 99 : Math.max(1, (snap?.config.maxBuyins ?? 10) - (snap?.me?.buyinCount ?? 0));
+  $("buyin-n").value = "1";
+  $("buyin-n").max = String(max);
+  $("buyin-hint").textContent = `每次 ${100 * (snap?.config.bigBlind ?? 2)} 筹码；还可买入 ${snap?.config.unlimitedBuyin ? "无限" : max} 次`;
+  $("buyin-ok").textContent = okLabel || "坐下";
+  $("modal").classList.remove("hidden");
+}
+
 $("btn-sit").onclick = () => {
   const snap = state.snapshot;
   if (snap?.me?.chips > 0) {
     void cmd({ type: "sit", buyinCount: 0 });
     return;
   }
-  const max = snap?.config.unlimitedBuyin ? 99 : Math.max(1, (snap?.config.maxBuyins ?? 10) - (snap?.me?.buyinCount ?? 0));
-  $("buyin-n").value = "1";
-  $("buyin-n").max = String(max);
-  $("buyin-hint").textContent = `每次 ${100 * (snap?.config.bigBlind ?? 2)} 筹码；还可买入 ${snap?.config.unlimitedBuyin ? "无限" : max} 次`;
-  $("modal").classList.remove("hidden");
+  openBuyin("坐下");
 };
 $("buyin-cancel").onclick = () => $("modal").classList.add("hidden");
 $("buyin-ok").onclick = () => {
   $("modal").classList.add("hidden");
-  void cmd({ type: "sit", buyinCount: Number($("buyin-n").value || 1) });
+  const n = Number($("buyin-n").value || 1);
+  if (state.snapshot?.me?.sitting) void cmd({ type: "rebuy", buyinCount: n });
+  else void cmd({ type: "sit", buyinCount: n });
 };
 $("btn-stand").onclick = () => void cmd({ type: "stand" });
 
 $("actions").onclick = (e) => {
+  if (e.target.closest("#btn-rebuy")) {
+    openBuyin("补码");
+    return;
+  }
   const btn = e.target.closest("button[data-act]");
   if (!btn) return;
   const act = btn.dataset.act;
@@ -366,35 +416,21 @@ $("actions").onclick = (e) => {
 setInterval(() => {
   if (!state.snapshot || state.snapshot.status === "finished") return;
   if (state.snapshot.remainingMs != null) {
-    state.snapshot.remainingMs = Math.max(0, state.snapshot.remainingMs - 250);
+    state.snapshot.remainingMs = Math.max(0, state.snapshot.remainingMs - 400);
     $("table-clock").textContent = `剩余 ${fmtMs(state.snapshot.remainingMs)}`;
   }
   if (state.snapshot.actingPlayerId && state.snapshot.actionDeadline) {
     const left = Math.max(0, state.snapshot.actionDeadline - Date.now());
-    const bits = [`行动倒计时 ${Math.ceil(left / 1000)}s`];
-    if (state.snapshot.lastResult?.winners?.length && !state.snapshot.street) {
-      /* keep */
-    }
-    $("banner").textContent = bits[0];
+    $("banner").textContent = `行动倒计时 ${Math.ceil(left / 1000)}s`;
   }
-}, 250);
+  if (state.tableNumber) void cmd({ type: "snapshot" });
+}, 400);
 
-$("nickname").value = state.nickname;
+$("nickname").value = "";
 
 const params = new URLSearchParams(location.search);
 if (params.get("t")) $("join-number").value = params.get("t");
 if (params.get("p")) $("join-password").value = params.get("p");
 if (params.get("t") && params.get("p")) {
   document.querySelector('.tab[data-tab="join"]').click();
-  if (state.nickname) {
-    void join(params.get("t"), params.get("p")).catch((err) => toast(err.message || "加入失败"));
-  }
-}
-
-if (!state.nickname) {
-  api("/api/names")
-    .then((d) => {
-      if (!$("nickname").value) $("nickname").value = d.nickname;
-    })
-    .catch(() => {});
 }

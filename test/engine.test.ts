@@ -7,6 +7,7 @@ import {
   createTable,
   evaluate7,
   freshDeck,
+  HAND_PAUSE_MS,
   newPlayerId,
   parseCards,
   PokerError,
@@ -442,6 +443,38 @@ describe("hand / street / pots / timeout", () => {
     const wb = tie.lastResult!.winners.find((w) => w.id === "b")?.amount ?? 0;
     assert.ok(wa > 0 && wb > 0);
     assert.equal(wa + wb, 4);
+  });
+
+  it("heads-up both all-in runs the board, shows both hands, then tick starts the next hand", () => {
+    const { table, clk } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({
+      deck: parseCards("Ac 5c Ad 5d 2c 3d 8h 9s Kd"),
+    });
+    allInEveryone(table);
+    assert.equal(table.hand, null);
+    assert.ok(table.lastResult);
+    assert.ok(table.lastResult!.winners.some((w) => w.amount > 0));
+    assert.ok(table.lastResult!.shown.a?.length === 2);
+    assert.ok(table.lastResult!.shown.b?.length === 2);
+    assert.ok(table.lastResult!.board.length === 5);
+    assert.ok(table.lastResult!.winners.some((w) => w.handName));
+    const snap = table.snapshot("a");
+    assert.equal(snap.street, null);
+    assert.ok(snap.lastResult?.shown.b);
+    assert.equal(table.players.get("b")!.chips, 0);
+    assert.equal(table.nextHandAt, null);
+    table.rebuy("b", 1);
+    assert.ok(table.nextHandAt);
+    assert.equal(table.nextHandAt, clk.now() + HAND_PAUSE_MS);
+    clk.add(HAND_PAUSE_MS - 1);
+    table.tick();
+    assert.equal(table.hand, null);
+    clk.add(1);
+    table.tick();
+    assert.ok(table.hand);
+    assert.equal(table.hand!.street, "preflop");
   });
 
   it("all-in short stack wins only the main pot, not the side pot", () => {

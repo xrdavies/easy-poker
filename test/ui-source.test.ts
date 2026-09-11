@@ -13,7 +13,10 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /orientation:\s*landscape/);
     assert.match(css, /max-width:\s*820px/);
     assert.match(css, /\.felt/);
+    assert.match(css, /aspect-ratio:\s*2\.2/);
+    assert.match(css, /aspect-ratio:\s*1\.75/);
     assert.match(css, /\.seat/);
+    assert.match(css, /\.pchip/);
     assert.match(css, /@keyframes dealIn/);
     assert.match(css, /@keyframes pulse/);
   });
@@ -31,6 +34,9 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(js, /\bmodule\.exports\b/);
     assert.match(js, /new WebSocket/);
     assert.match(js, /document\.getElementById/);
+    assert.match(js, /chipStackHTML/);
+    assert.match(html, /Easy Poker/);
+    assert.match(js, /\$\("nickname"\)\.value = ""/);
   });
 
   it("Worker config hosts both UI assets and the game server", () => {

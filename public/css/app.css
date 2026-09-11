@@ -38,7 +38,7 @@ button { cursor: pointer; }
   box-shadow: var(--shadow);
 }
 .brand { text-align: center; margin-bottom: 18px; }
-.brand h1 { margin: 6px 0 0; font-size: 32px; letter-spacing: 0.18em; }
+.brand h1 { margin: 6px 0 0; font-size: 32px; letter-spacing: 0.06em; }
 .brand p { margin: 6px 0 0; color: var(--muted); }
 .suit-row { display: flex; justify-content: center; gap: 12px; font-size: 22px; color: var(--gold); }
 .field { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; font-size: 13px; color: var(--muted); }
@@ -88,27 +88,30 @@ button { cursor: pointer; }
 .clock { color: var(--gold); font-variant-numeric: tabular-nums; }
 
 .table-wrap {
-  padding: 12px 16px 0;
-  height: min(68vh, 720px);
+  display: grid;
+  place-items: center;
+  padding: 10px 18px 0;
 }
 .rail {
-  height: 100%;
-  border-radius: 50% / 46%;
-  padding: 18px;
+  width: min(96%, calc(min(58vh, 520px) * 2.2));
+  aspect-ratio: 2.2 / 1;
+  border-radius: 50%;
+  padding: 14px 22px;
   background:
-    radial-gradient(closest-side, transparent 62%, rgba(226, 192, 120, 0.35) 63%, transparent 70%),
-    linear-gradient(180deg, #7a4a22, var(--rail-2));
-  box-shadow: inset 0 0 0 6px #2b160b, 0 20px 50px rgba(0, 0, 0, 0.45);
+    radial-gradient(closest-side, transparent 58%, rgba(226, 192, 120, 0.4) 59%, transparent 68%),
+    linear-gradient(180deg, #8a5528, var(--rail-2));
+  box-shadow: inset 0 0 0 5px #2b160b, 0 18px 40px rgba(0, 0, 0, 0.45);
 }
 .felt {
   position: relative;
   height: 100%;
-  border-radius: 50% / 46%;
+  border-radius: 50%;
   background:
-    radial-gradient(circle at 50% 42%, #14945c 0%, var(--felt) 42%, var(--felt-2) 100%);
-  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
+    radial-gradient(ellipse 70% 55% at 50% 42%, #14945c 0%, var(--felt) 46%, var(--felt-2) 100%);
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.35);
+  overflow: visible;
 }
+.felt.is-showdown { animation: pulse 0.8s ease-in-out 2; }
 .seats { position: absolute; inset: 0; }
 .seat {
   position: absolute;
@@ -139,10 +142,44 @@ button { cursor: pointer; }
 .seat .name { font-size: 12px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .seat .stack { font-size: 12px; color: var(--gold); font-variant-numeric: tabular-nums; }
 .seat .bet {
-  min-height: 18px;
+  min-height: 28px;
   font-size: 11px;
   color: #ffe9b0;
+  display: flex;
+  justify-content: center;
 }
+.chip-stack {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45));
+}
+.pchip {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  margin-left: -9px;
+  border: 2px dashed rgba(255, 255, 255, 0.78);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(0, 0, 0, 0.28);
+  flex: 0 0 auto;
+}
+.chip-stack .pchip:first-child { margin-left: 0; }
+.pchip.c1 { background: radial-gradient(circle at 35% 30%, #fff, #d9d3c7); }
+.pchip.c5 { background: radial-gradient(circle at 35% 30%, #e57373, #b71c1c); }
+.pchip.c25 { background: radial-gradient(circle at 35% 30%, #66bb6a, #1b5e20); }
+.pchip.c100 { background: radial-gradient(circle at 35% 30%, #555, #111); }
+.pchip.c500 { background: radial-gradient(circle at 35% 30%, #ce93d8, #6a1b9a); }
+.chip-amt {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #ffe9b0;
+  text-shadow: 0 1px 2px #000;
+  font-size: 11px;
+}
+.pot .chip-stack { margin-top: 4px; }
+.pot .chip-amt { font-size: 16px; }
 .seat .tags { font-size: 10px; color: #cde7d8; min-height: 14px; }
 .dealer {
   position: absolute;
@@ -169,7 +206,7 @@ button { cursor: pointer; }
 .center-stack {
   position: absolute;
   left: 50%;
-  top: 46%;
+  top: 42%;
   transform: translate(-50%, -50%);
   text-align: center;
   z-index: 1;
@@ -281,8 +318,12 @@ button { cursor: pointer; }
 }
 
 @media (max-width: 820px), (orientation: portrait) {
-  .table-wrap { height: 54vh; padding: 8px; }
-  .rail { padding: 10px; }
+  .table-wrap { padding: 8px; }
+  .rail {
+    width: min(96%, calc(min(42vh, 280px) * 1.75));
+    aspect-ratio: 1.75 / 1;
+    padding: 10px 14px;
+  }
   .seat { width: 78px; }
   .seat .avatar { width: 36px; height: 36px; font-size: 13px; }
   .card { width: 42px; height: 60px; }
@@ -299,6 +340,6 @@ button { cursor: pointer; }
 }
 
 @media (min-width: 1100px) and (orientation: landscape) {
-  .table-wrap { height: min(74vh, 780px); }
+  .rail { width: min(96%, calc(min(64vh, 560px) * 2.25)); aspect-ratio: 2.25 / 1; }
   .card { width: 60px; height: 84px; }
 }
