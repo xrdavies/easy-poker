@@ -6,7 +6,8 @@
 
 ```
 浏览器
-  └─ public/（HTML/CSS/JS/音效）  ← 前端 Worker easy-poker（wrangler.web.toml）
+  └─ Vite 客户端（client/，2d-engine：Engine / Renderer2D / AudioManager / HttpClient / WebSocketTransport / UIBridge）
+        构建产物 → public/  ← 前端 Worker easy-poker（wrangler.web.toml）
         GET /config.json          → { apiOrigin }
         GET /                     → 页面
   └─ HTTPS / WebSocket（跨域）

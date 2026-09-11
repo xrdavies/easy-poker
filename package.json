@@ -8,16 +8,21 @@
     "dev": "node scripts/dev.mjs",
     "dev:api": "wrangler dev --config wrangler.toml --port 8789 --inspector-port 9229",
     "dev:web": "wrangler dev --config wrangler.web.toml --port 8787 --inspector-port 9230",
+    "build:web": "vite build",
     "deploy": "npm run deploy:api && npm run deploy:web",
     "deploy:api": "wrangler deploy --config wrangler.toml",
-    "deploy:web": "wrangler deploy --config wrangler.web.toml",
-    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "deploy:web": "npm run build:web && wrangler deploy --config wrangler.web.toml",
+    "test": "npm run build:web && node --experimental-strip-types --test test/*.test.ts",
     "sounds": "node scripts/generate-sounds.mjs"
+  },
+  "dependencies": {
+    "@xrdavies/2d-engine": "file:../2d-engine"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
+    "vite": "^8.2.2",
     "wrangler": "^4.34.0"
   }
 }

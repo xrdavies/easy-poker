@@ -27,7 +27,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /\.showdown\s*\{[^}]*position:\s*fixed/s);
     assert.match(css, /\.showdown\s*\{[^}]*place-items:\s*center/s);
     assert.match(css, /\.seat-cd/);
-    const js = read("../public/js/app.js");
+    const js = read("../client/src/overlay.ts");
     assert.match(js, /seat-cd/);
     assert.doesNotMatch(js, /行动倒计时/);
     assert.match(js, /PORTRAIT_SEATS/);
@@ -41,15 +41,16 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(js, /STREET/);
     assert.doesNotMatch(js, /id="btn-rebuy"/);
     assert.match(css, /orientation:\s*portrait[\s\S]*\.showdown\s*\{[\s\S]*position:\s*fixed/);
-    const html = read("../public/index.html");
+    const html = read("../client/index.html");
     assert.match(html, /id="table-rules"/);
     assert.match(html, /<footer class="dock">[\s\S]*id="showdown"/);
     assert.doesNotMatch(html, /id="felt"[\s\S]*id="showdown"[\s\S]*class="dock"/);
   });
 
   it("has invite copy, action controls, and is not Node-only", () => {
-    const js = read("../public/js/app.js");
-    const html = read("../public/index.html");
+    const js = read("../client/src/overlay.ts");
+    const net = read("../client/src/net.ts");
+    const html = read("../client/index.html");
     assert.match(html, /复制邀请链接/);
     assert.doesNotMatch(html, /复制号码\+密码/);
     assert.doesNotMatch(html, /id="table-clock"/);
@@ -61,9 +62,9 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /data-act="raise"/);
     assert.doesNotMatch(js, /\brequire\s*\(/);
     assert.doesNotMatch(js, /\bmodule\.exports\b/);
-    assert.match(js, /new WebSocket/);
-    assert.match(js, /getApiOrigin/);
-    assert.match(js, /config\.json/);
+    assert.match(net, /WebSocketTransport/);
+    assert.match(net, /resolveOrigin|getApiOrigin/);
+    assert.match(net, /config\.json/);
     assert.match(js, /document\.getElementById/);
     assert.match(js, /chipStackHTML/);
     assert.match(html, /Easy Poker/);
@@ -107,17 +108,17 @@ describe("client UI source (shipped public assets)", () => {
   });
 
   it("ships distinct 音效 for check / raise / fold / 发牌 / 结算", () => {
-    const html = read("../public/index.html");
+    const sfx = read("../client/src/sfx.ts");
     for (const name of ["fold", "check", "bet-1", "bet-2", "bet-3", "allin", "deal", "shuffle-1", "tick", "win", "lose"]) {
-      assert.match(html, new RegExp(`/sounds/${name}\\.m4a`));
+      assert.match(sfx, new RegExp(`"${name}"`));
       assert.equal(existsSync(fileURLToPath(url(`../public/sounds/${name}.m4a`))), true);
     }
-    const js = read("../public/js/app.js");
+    const js = read("../client/src/overlay.ts");
     assert.match(js, /e\.type === "fold"/);
     assert.match(js, /once\("fold"\)/);
     assert.match(js, /once\("check"\)/);
     assert.match(js, /e\.type === "call"/);
-    assert.match(js, /bet-1/);
+    assert.match(sfx, /bet-1/);
     assert.match(js, /once\("allin"\)/);
     assert.match(js, /play\("deal"\)/);
     assert.match(js, /play\("shuffle"\)/);
@@ -125,7 +126,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /actingPlayerId === snap\.me\?\.id/);
     assert.match(js, /play\("win"\)/);
     assert.match(js, /play\("lose"\)/);
-    assert.match(js, /SFX_POOL/);
+    assert.match(sfx, /SFX_POOL/);
     assert.match(js, /raise-val/);
     assert.match(js, /data-runout/);
     assert.match(js, /actionLock/);

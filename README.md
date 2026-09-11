@@ -1,6 +1,6 @@
 # Easy Poker
 
-多人在线德州扑克（长牌现金桌）。**前端 Worker** 托管页面，**API Worker** 托管游戏权威服务和 WebSocket，用 Durable Object 作为每一张游戏桌的实时房间。两个 Worker 分开部署。
+多人在线德州扑克（长牌现金桌）。**前端 Worker** 托管页面（Vite 客户端 + 自研 `@xrdavies/2d-engine`），**API Worker** 托管游戏权威服务和 WebSocket，用 Durable Object 作为每一张游戏桌的实时房间。两个 Worker 分开部署。
 
 ## 功能
 
@@ -17,6 +17,8 @@
 ## 本地运行
 
 需要 Node.js 22+。
+
+需要同级目录的 `../2d-engine`（本机即 `/Users/r001/projects/engine`）。
 
 ```bash
 npm install
