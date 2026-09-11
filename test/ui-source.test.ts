@@ -113,6 +113,7 @@ describe("client UI source (shipped public assets)", () => {
       assert.equal(existsSync(fileURLToPath(url(`../public/sounds/${name}.m4a`))), true);
     }
     const js = read("../public/js/app.js");
+    assert.match(js, /e\.type === "fold"/);
     assert.match(js, /once\("fold"\)/);
     assert.match(js, /once\("check"\)/);
     assert.match(js, /e\.type === "call"/);

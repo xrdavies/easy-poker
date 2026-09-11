@@ -554,6 +554,25 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.players.get("a")!.folded, true);
   });
 
+  it("timeout checks when facing no bet, otherwise folds", () => {
+    const { table, clk } = open({ tableNumber: "CHKTO1" });
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({ deck: parseCards("Kc Ac Kd Ad 2c 3d 4h 5s 6c 7d 8h") });
+    assert.equal(actor(table), "a");
+    table.action("a", { type: "call" });
+    assert.equal(actor(table), "b");
+    assert.equal(table.hand!.currentBet - table.players.get("b")!.betThisStreet, 0);
+    clk.add(ACTION_MS);
+    table.tick();
+    assert.equal(table.players.get("b")!.folded, false);
+    assert.ok(table.events.some((e) => e.type === "timeout" && e.playerId === "b"));
+    assert.ok(table.events.some((e) => e.type === "check" && e.playerId === "b"));
+    assert.ok(table.hand);
+    assert.equal(table.hand!.street, "flop");
+    assert.equal(table.lastResult, null);
+  });
+
   it("rebuy credits chips only when the next hand starts; busted player is not dealt in", () => {
     const { table, clk } = open();
     joinSit(table, "a", "A");

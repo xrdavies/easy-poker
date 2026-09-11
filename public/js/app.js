@@ -227,7 +227,7 @@ function playEvents(events = []) {
     play(name);
   };
   for (const e of events) {
-    if (e.type === "fold" || e.type === "timeout") once("fold");
+    if (e.type === "fold") once("fold");
     else if (e.type === "check") once("check");
     else if (e.type === "call" || e.type === "bet" || e.type === "raise") play("bet");
     else if (e.type === "allin") once("allin");

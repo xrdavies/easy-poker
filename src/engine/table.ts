@@ -512,9 +512,16 @@ export class Table {
       const p = this.players.get(id);
       this.events = [];
       this.events.push({ type: "timeout", playerId: id });
-      this.lastTimeoutIds = [id];
-      if (p && !p.folded) this.applyAction(id, { type: "fold" });
-      else this.progressHand();
+      if (p && !p.folded) {
+        const toCall = Math.max(0, this.hand.currentBet - p.betThisStreet);
+        if (toCall === 0) {
+          this.lastTimeoutIds = [];
+          this.applyAction(id, { type: "check" });
+        } else {
+          this.lastTimeoutIds = [id];
+          this.applyAction(id, { type: "fold" });
+        }
+      } else this.progressHand();
       if (this.hand?.actingPlayerId === id) this.progressHand();
     }
     if (this.hand && !this.hand.actingPlayerId && !this.runoutVote) this.progressHand();
