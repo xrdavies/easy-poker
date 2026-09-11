@@ -119,7 +119,9 @@ button { cursor: pointer; }
   box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.35);
   overflow: visible;
 }
-.felt.is-showdown { animation: pulse 0.8s ease-in-out 2; }
+.felt.is-showdown { animation: none; }
+.felt.is-showdown .center-stack { visibility: hidden; }
+.felt.is-showdown .seat-cards { visibility: hidden; }
 .seats { position: absolute; inset: 0; }
 .seat {
   position: absolute;
@@ -358,9 +360,10 @@ button { cursor: pointer; }
   gap: 12px;
   margin: 10px 0;
 }
-.sd-row { min-width: 88px; }
-.sd-row .name { font-size: 12px; margin-bottom: 4px; }
+.sd-row { min-width: 100px; }
+.sd-row .name { font-size: 12px; margin-bottom: 6px; }
 .sd-row.winner .name { color: var(--gold); font-weight: 700; }
+.sd-row .sd-holes { display: flex; gap: 4px; justify-content: center; }
 .sd-win {
   font-size: 16px;
   font-weight: 800;

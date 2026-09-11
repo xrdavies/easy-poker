@@ -531,6 +531,10 @@ describe("hand / street / pots / timeout", () => {
     table.tick();
     assert.equal(table.hand!.actingPlayerId, "b");
     assert.equal(table.players.get("b")!.folded, false);
+    table.tick();
+    table.tick();
+    assert.equal(table.hand!.actingPlayerId, "b");
+    assert.equal(table.players.get("a")!.folded, true);
   });
 });
 

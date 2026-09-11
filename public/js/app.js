@@ -313,7 +313,7 @@ function renderShowdown(snap) {
       const win = winIds.has(id);
       const nm = nameOf(snap, id);
       const hn2 = lr.winners.find((w) => w.id === id)?.handName || "";
-      return `<div class="sd-row ${win ? "winner" : ""}"><div class="name">${escapeHtml(nm)}${hn2 ? " · " + hn2 : ""}</div><div>${cards.map((c) => cardHTML(c, "tiny")).join("")}</div></div>`;
+      return `<div class="sd-row ${win ? "winner" : ""}"><div class="name">${escapeHtml(nm)}${hn2 ? " · " + hn2 : ""}</div><div class="sd-holes">${cards.map((c) => cardHTML(c, "tiny")).join("")}</div></div>`;
     })
     .join("");
   $("sd-win").textContent = lr.winners
@@ -324,12 +324,17 @@ function renderShowdown(snap) {
   play("settle");
 }
 
+function actionMsLeft(snap) {
+  if (!snap?.actingPlayerId || snap.actionDeadline == null || snap.now == null) return null;
+  const elapsed = Date.now() - (state.recvAt || Date.now());
+  return Math.max(0, snap.actionDeadline - snap.now - elapsed);
+}
+
 function updateCountdown(snap) {
   const el = $("countdown");
   if (!el) return;
-  if (snap.actingPlayerId && snap.actionDeadline != null && snap.now != null) {
-    const elapsed = Date.now() - (state.recvAt || Date.now());
-    const left = Math.max(0, snap.actionDeadline - snap.now - elapsed);
+  const left = actionMsLeft(snap);
+  if (left != null) {
     el.textContent = `行动倒计时 ${Math.ceil(left / 1000)}s`;
   } else if (snap.nextHandAt && !snap.street) {
     el.textContent = `下一手 ${Math.max(0, Math.ceil((snap.nextHandAt - Date.now()) / 1000))}s`;
@@ -348,7 +353,7 @@ function renderActions(snap) {
   const legal = snap.legal;
   if (!legal) {
     const extras = [];
-    if (snap.me?.holeCards && snap.lastResult && !snap.street) {
+    if (snap.me?.holeCards && snap.lastResult && !snap.street && !snap.lastResult.shown?.[snap.me.id]) {
       extras.push(`<button type="button" data-act="show" class="ghost">亮牌</button>`);
     }
     if (snap.me?.sitting && snap.me.chips === 0) {
@@ -596,7 +601,8 @@ setInterval(() => {
   }
   updateCountdown(state.snapshot);
   const wsOpen = state.ws && state.ws.readyState === WebSocket.OPEN;
-  if (state.tableNumber && !wsOpen) void cmd({ type: "snapshot" });
+  const left = actionMsLeft(state.snapshot);
+  if (state.tableNumber && (!wsOpen || left === 0)) void cmd({ type: "snapshot" });
 }, 250);
 
 $("nickname").value = state.nickname;
