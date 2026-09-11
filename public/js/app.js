@@ -81,13 +81,31 @@ function fmtMs(ms) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+function paintRemain(ms) {
+  const text = ms != null ? `剩余 ${fmtMs(ms)}` : "等待开局";
+  $("table-clock").textContent = text;
+  const el = $("table-remain");
+  if (el) el.textContent = text;
+}
+
 function isPortraitTable() {
   return window.matchMedia("(orientation: portrait), (max-width: 820px)").matches;
 }
 
+const PORTRAIT_SEATS = [
+  { x: 50, y: 91 },
+  { x: 11, y: 73 },
+  { x: 7, y: 48 },
+  { x: 11, y: 24 },
+  { x: 50, y: 8 },
+  { x: 89, y: 24 },
+  { x: 93, y: 48 },
+  { x: 89, y: 73 },
+];
+
 function seatPos(i) {
+  if (isPortraitTable()) return PORTRAIT_SEATS[i] || { x: 50, y: 50 };
   const theta = Math.PI / 2 + i * ((2 * Math.PI) / SEATS);
-  if (isPortraitTable()) return { x: 50 + 34 * Math.cos(theta), y: 50 + 40 * Math.sin(theta) };
   return { x: 50 + 42 * Math.cos(theta), y: 50 + 28 * Math.sin(theta) };
 }
 
@@ -221,6 +239,7 @@ function visualKey(snap) {
     legal: snap.legal,
     last: snap.lastResult,
     vote: snap.runoutVote,
+    portrait: isPortraitTable(),
     seats: snap.seats.map((s) =>
       s
         ? [s.playerId, s.chips, s.pendingChips, s.bet, s.folded, s.acting, s.holeCards, s.isButton, s.isSb, s.isBb, s.sitting]
@@ -231,7 +250,7 @@ function visualKey(snap) {
 
 function renderTable(snap) {
   $("table-id").textContent = `${snap.tableNumber} · ${snap.password}`;
-  $("table-clock").textContent = snap.remainingMs != null ? `剩余 ${fmtMs(snap.remainingMs)}` : "等待开局";
+  paintRemain(snap.remainingMs);
   const sitting = Boolean(snap.me?.sitting);
   $("btn-sit").classList.toggle("hidden", sitting);
   $("btn-stand").classList.toggle("hidden", !sitting);
@@ -254,16 +273,19 @@ function renderTable(snap) {
       if (snap.me?.sitting && snap.me.chips === 0) bannerBits.push("筹码为 0，补码后从下一手参与");
     }
     $("banner").textContent = bannerBits.join(" · ");
-    const info = [];
+    const meLine = [];
     if (snap.me) {
       const pending = snap.me.pendingChips ? ` · 待下局 +${fmtChips(snap.me.pendingChips)}` : "";
-      info.push(`${escapeHtml(snap.me.nickname)} · ${fmtChips(snap.me.chips)}${pending} · buy-in ${snap.me.buyinCount}`);
+      meLine.push(`${escapeHtml(snap.me.nickname)} · ${fmtChips(snap.me.chips)}${pending} · buy-in ${snap.me.buyinCount}`);
     }
-    if (snap.config.straddleAllowed) info.push("Straddle");
-    if (snap.config.squidEnabled) info.push("鱿鱼");
-    if (snap.config.bounty27Enabled) info.push("27杂色");
-    info.push(snap.config.unlimitedBuyin ? "无限买入" : `最多${snap.config.maxBuyins}次买入`);
-    $("meta").innerHTML = info.map((t) => `<span class="chip">${t}</span>`).join(" ");
+    $("meta").innerHTML = meLine.map((t) => `<span class="chip">${t}</span>`).join(" ");
+    const flags = [];
+    if (snap.config.straddleAllowed) flags.push("Straddle");
+    if (snap.config.squidEnabled) flags.push("鱿鱼");
+    if (snap.config.bounty27Enabled) flags.push("27杂色");
+    flags.push(snap.config.unlimitedBuyin ? "无限买入" : `最多${snap.config.maxBuyins}次买入`);
+    const flagsEl = $("table-rule-flags");
+    if (flagsEl) flagsEl.textContent = flags.join(" · ");
     renderActions(snap);
     queueDeals(snap);
     renderShowdown(snap);
@@ -798,7 +820,7 @@ setInterval(() => {
   if (!state.snapshot || state.snapshot.status === "finished") return;
   if (state.snapshot.remainingMs != null) {
     state.snapshot.remainingMs = Math.max(0, state.snapshot.remainingMs - 250);
-    $("table-clock").textContent = `剩余 ${fmtMs(state.snapshot.remainingMs)}`;
+    paintRemain(state.snapshot.remainingMs);
   }
   updateCountdown(state.snapshot);
   const wsOpen = state.ws && state.ws.readyState === WebSocket.OPEN;

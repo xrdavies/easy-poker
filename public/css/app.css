@@ -122,6 +122,7 @@ button { cursor: pointer; }
 }
 .felt.is-showdown { animation: none; }
 .felt.is-showdown .center-stack { visibility: hidden; }
+.felt.is-showdown .table-rules { visibility: hidden; }
 .felt.is-showdown .seat-cards { visibility: hidden; }
 .seats { position: absolute; inset: 0; }
 .seat {
@@ -283,6 +284,25 @@ button { cursor: pointer; }
   color: var(--gold);
   font-weight: 700;
 }
+.table-rules {
+  position: absolute;
+  left: 50%;
+  top: 66%;
+  transform: translate(-50%, 0);
+  width: min(58%, 280px);
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgba(196, 214, 204, 0.42);
+  font-weight: 500;
+  text-align: center;
+  pointer-events: none;
+}
+.table-rules #table-remain { font-variant-numeric: tabular-nums; }
 
 .card {
   width: 54px;
@@ -449,11 +469,22 @@ button { cursor: pointer; }
 @media (max-width: 820px), (orientation: portrait) {
   .table-wrap { padding: 6px 8px 0; }
   .rail {
-    /* phone: standing racetrack oval, taller than wide */
-    width: min(78vw, calc(min(56vh, 560px) / 1.75));
-    aspect-ratio: 1 / 1.75;
-    padding: 22px 12px;
+    /* phone: standing racetrack, nearly full width so side seats hug the edges */
+    width: min(96vw, calc(min(62vh, 640px) / 1.65));
+    aspect-ratio: 1 / 1.65;
+    padding: 18px 4px;
   }
+  .center-stack {
+    top: 42%;
+    width: min(52%, 240px);
+  }
+  .table-rules {
+    top: 63%;
+    width: min(48%, 200px);
+    font-size: 10px;
+  }
+  .board { gap: 4px; min-height: 64px; }
+  .pot { font-size: 15px; }
   .seat { width: 78px; }
   .seat .avatar { width: 36px; height: 36px; font-size: 13px; }
   .seat-cd { font-size: 15px; }

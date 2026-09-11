@@ -14,7 +14,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /max-width:\s*820px/);
     assert.match(css, /\.felt/);
     assert.match(css, /aspect-ratio:\s*2\.2\s*\/\s*1/);
-    assert.match(css, /aspect-ratio:\s*1\s*\/\s*1\.75/);
+    assert.match(css, /aspect-ratio:\s*1\s*\/\s*1\.65/);
     assert.match(css, /border-radius:\s*999px/);
     assert.match(css, /\.seat/);
     assert.match(css, /\.pchip/);
@@ -30,8 +30,11 @@ describe("client UI source (shipped public assets)", () => {
     const js = read("../public/js/app.js");
     assert.match(js, /seat-cd/);
     assert.doesNotMatch(js, /行动倒计时/);
+    assert.match(js, /PORTRAIT_SEATS/);
+    assert.match(css, /\.table-rules/);
     assert.match(css, /orientation:\s*portrait[\s\S]*\.showdown\s*\{[\s\S]*position:\s*fixed/);
     const html = read("../public/index.html");
+    assert.match(html, /id="table-rules"/);
     assert.match(html, /<footer class="dock">[\s\S]*id="showdown"/);
     assert.doesNotMatch(html, /id="felt"[\s\S]*id="showdown"[\s\S]*class="dock"/);
   });
