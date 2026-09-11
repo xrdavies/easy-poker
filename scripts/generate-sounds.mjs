@@ -1,5 +1,6 @@
 /** Sampled SFX live in scripts/sfx-src (free card/chip recordings).
  *  Mapping: place-cards → deal + fold bed; bet-1/2/3 → bet/call/raise;
+ *  check.wav doubled into one file; win.wav / lose.wav replace synth stings;
  *  all-in is spoken "all in"; shuffle-cards-1/5 full, 2/3/4 trimmed to ~0.9s → shuffle pool.
  *  Output is 48 kbps mono AAC in public/sounds.
  */
@@ -74,6 +75,16 @@ function render(seconds, fn) {
   return samples;
 }
 
+function concat(parts, gapSec = 0) {
+  const gap = new Array(Math.floor(gapSec * RATE)).fill(0);
+  const out = [];
+  for (let i = 0; i < parts.length; i++) {
+    if (i) out.push(...gap);
+    out.push(...parts[i]);
+  }
+  return out;
+}
+
 function mix(a, b, offset = 0) {
   const n = Math.max(a.length, offset + b.length);
   const out = new Array(n).fill(0);
@@ -130,29 +141,15 @@ const slap = render(0.16, (t) => {
   const paper = noise(t, 9) * Math.exp(-t * 70) * (t < 0.04 ? 1.6 : 0.3);
   return thump * 0.7 + paper;
 });
-const knock = render(0.22, (t) => {
-  const hit1 = t < 0.05 ? (noise(t, 1) * 1.4 + Math.sin(2 * Math.PI * 190 * t) * 0.7) * Math.exp(-t * 55) : 0;
-  const u = t - 0.09;
-  const hit2 = u > 0 && u < 0.06 ? (noise(u, 2) * 1.2 + Math.sin(2 * Math.PI * 160 * u) * 0.8) * Math.exp(-u * 50) : 0;
-  return hit1 + hit2;
-});
 const tick = render(0.07, (t) => Math.sin(2 * Math.PI * 2100 * t) * Math.exp(-t * 90) + noise(t, 4) * 0.35 * Math.exp(-t * 80));
-const win = render(0.7, (t) => {
-  const notes = [523.25, 659.25, 783.99, 1046.5];
-  const i = Math.min(3, Math.floor(t / 0.14));
-  return Math.sin(2 * Math.PI * notes[i] * t) * (0.5 + 0.5 * Math.sin(2 * Math.PI * notes[i] * 2 * t) * 0.15);
-});
-const lose = render(0.55, (t) => {
-  const f = 392 - t * 220;
-  return Math.sin(2 * Math.PI * f * t) * (1 - t) + 0.2 * Math.sin(2 * Math.PI * (f / 2) * t);
-});
 
 const place = loadSrc("place-cards.mp3");
+const checkOnce = loadSrc("check.wav");
 writeM4a("fold", mix(place, sayVoice("fold", "fold"), Math.floor(RATE * 0.05)));
-writeM4a("check", knock);
+writeM4a("check", concat([checkOnce, checkOnce], 0.07));
 writeM4a("tick", tick);
-writeM4a("win", win);
-writeM4a("lose", lose);
+writeM4a("win", loadSrc("win.wav"));
+writeM4a("lose", loadSrc("lose.wav"));
 
 writeM4a("deal", loadSrc("place-cards.mp3"));
 writeM4a("allin", sayVoice("all in", "allin"));
