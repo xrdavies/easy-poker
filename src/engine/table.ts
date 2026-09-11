@@ -44,6 +44,7 @@ export interface TableJSON {
 }
 
 export interface LastResult {
+  handNumber: number;
   board: Card[];
   shown: Record<string, Card[]>;
   winners: { id: string; amount: number; handName?: string }[];
@@ -275,7 +276,7 @@ export class Table {
     const p = this.requirePlayer(playerId);
     if (p.sitting) throw new PokerError("already_seated", "已经坐下");
     const empty = this.emptySeats();
-    if (empty.length === 0) throw new PokerError("table_full", "游戏桌已满 10 人");
+    if (empty.length === 0) throw new PokerError("table_full", "游戏桌已满 8 人");
     const n = Math.floor(buyinCount);
     if (p.chips <= 0) {
       if (!Number.isInteger(n) || n < 1) throw new PokerError("invalid_buyin", "坐下时需要至少 1 次 buyin");
@@ -453,6 +454,7 @@ export class Table {
     this.assertNotFinished();
     if (!this.hand) throw new PokerError("no_hand", "还没有发牌");
     if (this.hand.actingPlayerId !== playerId) throw new PokerError("not_your_turn", "还没轮到你");
+    this.events = [];
     this.applyAction(playerId, input);
   }
 
@@ -460,8 +462,12 @@ export class Table {
     if (this.status === "finished") return;
     if (this.hand?.actingPlayerId && this.hand.actionDeadline !== null && this.now() >= this.hand.actionDeadline) {
       const id = this.hand.actingPlayerId;
+      const p = this.players.get(id);
+      this.events = [];
       this.events.push({ type: "timeout", playerId: id });
-      this.applyAction(id, { type: "fold" });
+      if (p && !p.folded) this.applyAction(id, { type: "fold" });
+      else this.progressHand();
+      if (this.hand?.actingPlayerId === id) this.progressHand();
     }
     if (this.hand && !this.hand.actingPlayerId) this.progressHand();
     if (!this.hand && this.endsAt !== null && this.now() >= this.endsAt) {
@@ -552,6 +558,7 @@ export class Table {
       events: this.events.slice(),
       lastResult: this.lastResult
         ? {
+            handNumber: this.lastResult.handNumber,
             board: this.lastResult.board.slice(),
             winners: this.lastResult.winners.slice(),
             pot: this.lastResult.pot,
@@ -1184,6 +1191,7 @@ export class Table {
       handName: values?.get(id) ? rankName(values.get(id)!) : undefined,
     }));
     this.lastResult = {
+      handNumber: this.nextHandNumber - 1,
       board: this.hand?.board.slice() ?? [],
       shown,
       winners,

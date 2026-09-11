@@ -156,13 +156,13 @@ describe("table create / invite / seats / 结算", () => {
     });
   });
 
-  it("rejects the 11th sitter and does not move occupied seats", () => {
+  it("rejects the 9th sitter and does not move occupied seats", () => {
     const { table } = open();
     const seats: number[] = [];
-    for (let i = 0; i < 10; i++) seats.push(joinSit(table, `p${i}`, `玩家${i}`));
-    assert.deepEqual(seats.slice().sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    for (let i = 0; i < 8; i++) seats.push(joinSit(table, `p${i}`, `玩家${i}`));
+    assert.deepEqual(seats.slice().sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7]);
     const occupied = table.seats.slice();
-    assert.throws(() => joinSit(table, "p10", "旁观转坐"), (err: unknown) => {
+    assert.throws(() => joinSit(table, "p8", "旁观转坐"), (err: unknown) => {
       assert.ok(err instanceof PokerError);
       assert.equal(err.code, "table_full");
       return true;
@@ -185,7 +185,7 @@ describe("table create / invite / seats / 结算", () => {
 
     const { table: t2 } = open({ tableNumber: "TABL02" }, () => 0.999);
     const last = joinSit(t2, "z", "Z");
-    assert.equal(last, 9);
+    assert.equal(last, 7);
   });
 
   it("after force end, start/deal is rejected and state is 结算", () => {
@@ -511,6 +511,26 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.hand, null);
     assert.ok(table.events.some((e) => e.type === "timeout" && e.playerId === "a"));
     assert.ok(table.players.get("b")!.chips > 200 - 2);
+  });
+
+  it("timeout folds that player once and passes action to the next player", () => {
+    const { table, clk } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    joinSit(table, "c", "C");
+    table.startHand({ deck: parseCards("2c 3d 4h 5s 6c 7d 8h 9s Tc Jd Qh") });
+    assert.equal(actor(table), "a");
+    clk.add(ACTION_MS);
+    table.tick();
+    assert.equal(table.players.get("a")!.folded, true);
+    assert.ok(table.hand);
+    assert.notEqual(table.hand!.actingPlayerId, "a");
+    assert.equal(table.hand!.actingPlayerId, "b");
+    assert.ok(table.hand!.actionDeadline! > clk.now());
+    clk.add(ACTION_MS - 1);
+    table.tick();
+    assert.equal(table.hand!.actingPlayerId, "b");
+    assert.equal(table.players.get("b")!.folded, false);
   });
 });
 

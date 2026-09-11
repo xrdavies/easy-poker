@@ -20,6 +20,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /\.pchip/);
     assert.match(css, /@keyframes dealIn/);
     assert.match(css, /@keyframes pulse/);
+    assert.match(css, /@keyframes sdIn/);
+    assert.match(css, /\.deal-anim/);
   });
 
   it("has invite copy, action controls, and is not Node-only", () => {
@@ -42,6 +44,11 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /ep\.table/);
     assert.match(js, /ep\.nick/);
     assert.match(js, /isPortraitTable/);
+    assert.match(js, /queueDeals/);
+    assert.match(js, /renderShowdown/);
+    assert.match(js, /visualKey/);
+    assert.match(html, /本手结算/);
+    assert.match(js, /SEATS = 8/);
   });
 
   it("Worker config hosts both UI assets and the game server", () => {
