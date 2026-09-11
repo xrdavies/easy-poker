@@ -32,6 +32,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(js, /行动倒计时/);
     assert.match(js, /PORTRAIT_SEATS/);
     assert.match(css, /\.table-rules/);
+    assert.match(css, /--rail-w/);
     assert.match(css, /orientation:\s*portrait[\s\S]*\.showdown\s*\{[\s\S]*position:\s*fixed/);
     const html = read("../public/index.html");
     assert.match(html, /id="table-rules"/);
@@ -43,7 +44,9 @@ describe("client UI source (shipped public assets)", () => {
     const js = read("../public/js/app.js");
     const html = read("../public/index.html");
     assert.match(html, /复制邀请链接/);
-    assert.match(html, /复制号码\+密码/);
+    assert.doesNotMatch(html, /复制号码\+密码/);
+    assert.doesNotMatch(html, /id="table-clock"/);
+    assert.match(html, /id="btn-leave"[^>]*>退出</);
     assert.match(js, /clipboard\.writeText/);
     assert.match(js, /inviteUrl/);
     assert.match(js, /data-act="fold"/);

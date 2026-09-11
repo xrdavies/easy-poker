@@ -15,6 +15,7 @@
   --card: #f8f4ec;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
   --radius: 18px;
+  --rail-w: 16px;
   color-scheme: dark;
 }
 
@@ -102,22 +103,23 @@ button { cursor: pointer; }
 }
 .rail {
   /* desktop: racetrack oval, wider than tall (casino Hold’em table) */
+  position: relative;
   width: min(94vw, 1100px, calc(min(60vh, 520px) * 2.2));
   aspect-ratio: 2.2 / 1;
   border-radius: 999px;
-  padding: 16px 28px;
-  background:
-    radial-gradient(closest-side, transparent 58%, rgba(226, 192, 120, 0.4) 59%, transparent 68%),
-    linear-gradient(180deg, #8a5528, var(--rail-2));
+  padding: 0;
+  background: linear-gradient(180deg, #8a5528, var(--rail-2));
   box-shadow: inset 0 0 0 5px #2b160b, 0 18px 40px rgba(0, 0, 0, 0.45);
 }
 .felt {
-  position: relative;
-  height: 100%;
+  position: absolute;
+  inset: var(--rail-w);
   border-radius: 999px;
   background:
     radial-gradient(ellipse 70% 55% at 50% 42%, #14945c 0%, var(--felt) 46%, var(--felt-2) 100%);
-  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 2px rgba(226, 192, 120, 0.45),
+    inset 0 0 70px rgba(0, 0, 0, 0.35);
   overflow: visible;
 }
 .felt.is-showdown { animation: none; }
@@ -330,14 +332,13 @@ button { cursor: pointer; }
 
 .dock {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   gap: 16px;
   align-items: center;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(8, 16, 24, 0.2), rgba(8, 16, 24, 0.92));
 }
-.meta { color: var(--muted); font-size: 13px; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; justify-self: end; }
 .actions button { min-width: 84px; }
 .actions .fold { background: #5a1f1f; color: #ffd0d0; border: 1px solid #8a3a3a; border-radius: 12px; padding: 10px 14px; }
 .actions .check, .actions .call { background: #163a66; color: #d6e8ff; border: 1px solid #2d6db3; border-radius: 12px; padding: 10px 14px; }
@@ -470,9 +471,10 @@ button { cursor: pointer; }
   .table-wrap { padding: 6px 8px 0; }
   .rail {
     /* phone: standing racetrack, nearly full width so side seats hug the edges */
+    --rail-w: 14px;
     width: min(96vw, calc(min(62vh, 640px) / 1.65));
     aspect-ratio: 1 / 1.65;
-    padding: 18px 4px;
+    padding: 0;
   }
   .center-stack {
     top: 42%;

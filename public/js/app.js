@@ -82,10 +82,8 @@ function fmtMs(ms) {
 }
 
 function paintRemain(ms) {
-  const text = ms != null ? `剩余 ${fmtMs(ms)}` : "等待开局";
-  $("table-clock").textContent = text;
   const el = $("table-remain");
-  if (el) el.textContent = text;
+  if (el) el.textContent = ms != null ? `剩余 ${fmtMs(ms)}` : "等待开局";
 }
 
 function isPortraitTable() {
@@ -273,12 +271,6 @@ function renderTable(snap) {
       if (snap.me?.sitting && snap.me.chips === 0) bannerBits.push("筹码为 0，补码后从下一手参与");
     }
     $("banner").textContent = bannerBits.join(" · ");
-    const meLine = [];
-    if (snap.me) {
-      const pending = snap.me.pendingChips ? ` · 待下局 +${fmtChips(snap.me.pendingChips)}` : "";
-      meLine.push(`${escapeHtml(snap.me.nickname)} · ${fmtChips(snap.me.chips)}${pending} · buy-in ${snap.me.buyinCount}`);
-    }
-    $("meta").innerHTML = meLine.map((t) => `<span class="chip">${t}</span>`).join(" ");
     const flags = [];
     if (snap.config.straddleAllowed) flags.push("Straddle");
     if (snap.config.squidEnabled) flags.push("鱿鱼");
@@ -761,7 +753,6 @@ async function join(tableNumber, password) {
 }
 
 $("btn-copy-link").onclick = () => copy(inviteUrl(), "邀请链接已复制");
-$("btn-copy-code").onclick = () => copy(`游戏桌 ${state.tableNumber} 密码 ${state.password}`, "号码和密码已复制");
 $("btn-copy-link-2").onclick = () => copy(inviteUrl(), "邀请链接已复制");
 $("btn-leave").onclick = () => void leaveTable();
 $("btn-leave-2").onclick = () => void leaveTable();
