@@ -24,6 +24,12 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /\.deal-anim/);
     assert.match(css, /is-showdown \.center-stack/);
     assert.match(css, /\.sd-holes/);
+    assert.match(css, /\.showdown\s*\{[^}]*position:\s*fixed/s);
+    assert.match(css, /\.showdown\s*\{[^}]*place-items:\s*center/s);
+    assert.match(css, /orientation:\s*portrait[\s\S]*\.showdown\s*\{[\s\S]*position:\s*fixed/);
+    const html = read("../public/index.html");
+    assert.match(html, /<footer class="dock">[\s\S]*id="showdown"/);
+    assert.doesNotMatch(html, /id="felt"[\s\S]*id="showdown"[\s\S]*class="dock"/);
   });
 
   it("has invite copy, action controls, and is not Node-only", () => {
