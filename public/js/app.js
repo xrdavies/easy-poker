@@ -35,8 +35,23 @@ function toast(msg) {
   toast._t = setTimeout(() => el.classList.add("hidden"), 2200);
 }
 
+const SFX_POOL = {
+  fold: ["fold"],
+  check: ["check"],
+  bet: ["bet", "bet-2", "bet-3"],
+  raise: ["bet", "bet-2", "bet-3"],
+  allin: ["allin"],
+  deal: ["deal"],
+  shuffle: ["shuffle", "shuffle-2", "shuffle-3", "shuffle-4", "shuffle-5"],
+  tick: ["tick"],
+  win: ["win"],
+  lose: ["lose"],
+};
+
 function play(name) {
-  const el = $(`sfx-${name}`);
+  const pool = SFX_POOL[name] || [name];
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  const el = $(`sfx-${pick}`);
   if (!el) return;
   try {
     const node = el.cloneNode(true);
@@ -320,6 +335,7 @@ function queueDeals(snap) {
   const board = snap.board ?? [];
   const hn = snap.handNumber;
   if (hn !== state.dealHand || board.length < state.shownBoard.length) {
+    if (hn !== state.dealHand && (holes.length || board.length)) play("shuffle");
     state.dealHand = hn;
     state.shownHoles = [];
     state.shownBoard = [];
@@ -349,7 +365,7 @@ function pumpDeal() {
   setTimeout(() => {
     state.dealBusy = false;
     pumpDeal();
-  }, 160);
+  }, 220);
 }
 
 function renderShowdown(snap) {

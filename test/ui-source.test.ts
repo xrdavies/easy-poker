@@ -90,9 +90,9 @@ describe("client UI source (shipped public assets)", () => {
 
   it("ships distinct 音效 for check / raise / fold / 发牌 / 结算", () => {
     const html = read("../public/index.html");
-    for (const name of ["fold", "check", "bet", "raise", "allin", "deal", "tick", "win", "lose"]) {
-      assert.match(html, new RegExp(`/sounds/${name}\\.wav`));
-      assert.equal(existsSync(fileURLToPath(url(`../public/sounds/${name}.wav`))), true);
+    for (const name of ["fold", "check", "bet", "bet-2", "bet-3", "allin", "deal", "shuffle", "tick", "win", "lose"]) {
+      assert.match(html, new RegExp(`/sounds/${name}\\.m4a`));
+      assert.equal(existsSync(fileURLToPath(url(`../public/sounds/${name}.m4a`))), true);
     }
     const js = read("../public/js/app.js");
     assert.match(js, /once\("fold"\)/);
@@ -101,9 +101,11 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /once\("raise"\)/);
     assert.match(js, /once\("allin"\)/);
     assert.match(js, /play\("deal"\)/);
+    assert.match(js, /play\("shuffle"\)/);
     assert.match(js, /play\("tick"\)/);
     assert.match(js, /play\("win"\)/);
     assert.match(js, /play\("lose"\)/);
+    assert.match(js, /SFX_POOL/);
     assert.match(js, /raise-val/);
     assert.match(js, /data-runout/);
     assert.match(js, /actionLock/);

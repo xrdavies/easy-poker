@@ -1,11 +1,18 @@
+/** Sampled SFX live in scripts/sfx-src (free card/chip recordings).
+ *  Mapping: place-cards → deal + fold bed; bet-1/2/3 → bet/raise;
+ *  allin → all-in; shuffle-cards-1/5 full, 2/3/4 trimmed to ~0.9s → shuffle pool.
+ *  Output is 48 kbps mono AAC in public/sounds.
+ */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "sounds");
-mkdirSync(dir, { recursive: true });
+const repo = dirname(dirname(fileURLToPath(import.meta.url)));
+const outDir = join(repo, "public", "sounds");
+const srcDir = join(repo, "scripts", "sfx-src");
+mkdirSync(outDir, { recursive: true });
 const tmp = mkdtempSync(join(tmpdir(), "ep-sfx-"));
 const RATE = 22050;
 
@@ -27,17 +34,6 @@ function wavFromSamples(samples, sampleRate = RATE) {
   buf.writeUInt32LE(data.length * 2, 40);
   for (let i = 0; i < data.length; i++) buf.writeInt16LE(data[i], 44 + i * 2);
   return buf;
-}
-
-function render(seconds, fn, sampleRate = RATE) {
-  const n = Math.floor(seconds * sampleRate);
-  const samples = new Array(n);
-  for (let i = 0; i < n; i++) {
-    const t = i / sampleRate;
-    const env = Math.min(1, i / 80) * Math.min(1, (n - i) / Math.max(40, sampleRate * 0.02));
-    samples[i] = Math.max(-1, Math.min(1, fn(t, i / n))) * env * 0.78 * 32767;
-  }
-  return samples;
 }
 
 function parseWavPcm(buf) {
@@ -67,6 +63,17 @@ function parseWavPcm(buf) {
   return out;
 }
 
+function render(seconds, fn) {
+  const n = Math.floor(seconds * RATE);
+  const samples = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / RATE;
+    const env = Math.min(1, i / 80) * Math.min(1, (n - i) / Math.max(40, RATE * 0.02));
+    samples[i] = Math.max(-1, Math.min(1, fn(t))) * env * 0.78 * 32767;
+  }
+  return samples;
+}
+
 function mix(a, b, offset = 0) {
   const n = Math.max(a.length, offset + b.length);
   const out = new Array(n).fill(0);
@@ -81,64 +88,79 @@ function noise(t, seed) {
   return x - Math.floor(x) - 0.5;
 }
 
-function sayVoice(text, fileStem) {
-  const aiff = join(tmp, `${fileStem}.aiff`);
-  const wav = join(tmp, `${fileStem}.wav`);
+function sayVoice(text, stem) {
+  const aiff = join(tmp, `${stem}.aiff`);
+  const wav = join(tmp, `${stem}-voice.wav`);
   execFileSync("say", ["-v", "Samantha", "-r", "175", "-o", aiff, text], { stdio: "pipe" });
-  execFileSync("afconvert", ["-f", "WAVE", "-d", "LEI16@22050", aiff, wav], { stdio: "pipe" });
+  execFileSync("afconvert", ["-f", "WAVE", "-d", `LEI16@${RATE}`, "-c", "1", aiff, wav], { stdio: "pipe" });
   return parseWavPcm(readFileSync(wav));
 }
 
-const knock = render(0.22, (t) => {
-  const hit1 = t < 0.05 ? (noise(t, 1) * 1.4 + Math.sin(2 * Math.PI * 190 * t) * 0.7) * Math.exp(-t * 55) : 0;
-  const u = t - 0.09;
-  const hit2 = u > 0 && u < 0.06 ? (noise(u, 2) * 1.2 + Math.sin(2 * Math.PI * 160 * u) * 0.8) * Math.exp(-u * 50) : 0;
-  return hit1 + hit2;
-});
+function findSrc(name) {
+  const local = join(srcDir, name);
+  if (existsSync(local)) return local;
+  const dl = join("/Users/r001/Downloads", name);
+  if (existsSync(dl)) return dl;
+  throw new Error(`missing sfx source ${name}`);
+}
+
+function loadSrc(name, { startSec = 0, durationSec = null } = {}) {
+  const wav = join(tmp, `${name.replace(/\W+/g, "_")}.wav`);
+  execFileSync(
+    "afconvert",
+    ["-f", "WAVE", "-d", `LEI16@${RATE}`, "-c", "1", findSrc(name), wav],
+    { stdio: "pipe" },
+  );
+  let pcm = parseWavPcm(readFileSync(wav));
+  const start = Math.floor(startSec * RATE);
+  const end = durationSec == null ? pcm.length : Math.min(pcm.length, start + Math.floor(durationSec * RATE));
+  return pcm.slice(start, end);
+}
+
+function writeM4a(stem, samples) {
+  const wav = join(tmp, `${stem}.wav`);
+  const m4a = join(outDir, `${stem}.m4a`);
+  writeFileSync(wav, wavFromSamples(samples));
+  execFileSync("afconvert", ["-f", "m4af", "-d", "aac", "-b", "48000", "-c", "1", wav, m4a], { stdio: "pipe" });
+  console.log("wrote", `${stem}.m4a`, readFileSync(m4a).length);
+}
 
 const slap = render(0.16, (t) => {
   const thump = Math.sin(2 * Math.PI * 90 * t) * Math.exp(-t * 40);
   const paper = noise(t, 9) * Math.exp(-t * 70) * (t < 0.04 ? 1.6 : 0.3);
   return thump * 0.7 + paper;
 });
-
-const whoosh = render(0.16, (t) => {
-  const f = 2200 - t * 1600;
-  return noise(t, 3) * 1.8 * Math.exp(-t * 14) + Math.sin(2 * Math.PI * f * t) * 0.12 * Math.exp(-t * 18);
+const knock = render(0.22, (t) => {
+  const hit1 = t < 0.05 ? (noise(t, 1) * 1.4 + Math.sin(2 * Math.PI * 190 * t) * 0.7) * Math.exp(-t * 55) : 0;
+  const u = t - 0.09;
+  const hit2 = u > 0 && u < 0.06 ? (noise(u, 2) * 1.2 + Math.sin(2 * Math.PI * 160 * u) * 0.8) * Math.exp(-u * 50) : 0;
+  return hit1 + hit2;
 });
-
 const tick = render(0.07, (t) => Math.sin(2 * Math.PI * 2100 * t) * Math.exp(-t * 90) + noise(t, 4) * 0.35 * Math.exp(-t * 80));
-
 const win = render(0.7, (t) => {
   const notes = [523.25, 659.25, 783.99, 1046.5];
   const i = Math.min(3, Math.floor(t / 0.14));
   return Math.sin(2 * Math.PI * notes[i] * t) * (0.5 + 0.5 * Math.sin(2 * Math.PI * notes[i] * 2 * t) * 0.15);
 });
-
 const lose = render(0.55, (t) => {
   const f = 392 - t * 220;
   return Math.sin(2 * Math.PI * f * t) * (1 - t) + 0.2 * Math.sin(2 * Math.PI * (f / 2) * t);
 });
 
-const foldVoice = sayVoice("fold", "fold");
-const betVoice = sayVoice("bet", "bet");
-const raiseVoice = sayVoice("raise", "raise");
-const allinVoice = sayVoice("all in", "allin");
+const place = loadSrc("place-cards.mp3");
+writeM4a("fold", mix(place, sayVoice("fold", "fold"), Math.floor(RATE * 0.05)));
+writeM4a("check", knock);
+writeM4a("tick", tick);
+writeM4a("win", win);
+writeM4a("lose", lose);
 
-const files = {
-  fold: mix(slap, foldVoice, Math.floor(RATE * 0.08)),
-  check: knock,
-  bet: betVoice,
-  raise: raiseVoice,
-  allin: allinVoice,
-  deal: whoosh,
-  tick,
-  win,
-  lose,
-};
-
-for (const [name, samples] of Object.entries(files)) {
-  const buf = wavFromSamples(samples);
-  writeFileSync(join(dir, `${name}.wav`), buf);
-  console.log("wrote", name, buf.length);
-}
+writeM4a("deal", loadSrc("place-cards.mp3"));
+writeM4a("allin", loadSrc("allin.mp3"));
+writeM4a("bet", loadSrc("bet-1.mp3"));
+writeM4a("bet-2", loadSrc("bet-2.mp3"));
+writeM4a("bet-3", loadSrc("bet-3.mp3"));
+writeM4a("shuffle", loadSrc("shuffle-cards-1.mp3"));
+writeM4a("shuffle-2", loadSrc("shuffle-cards-5.mp3"));
+writeM4a("shuffle-3", loadSrc("shuffle-cards-2.mp3", { durationSec: 0.85 }));
+writeM4a("shuffle-4", loadSrc("shuffle-cards-3.mp3", { durationSec: 0.85 }));
+writeM4a("shuffle-5", loadSrc("shuffle-cards-4.mp3", { durationSec: 0.9 }));
