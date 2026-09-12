@@ -21,12 +21,19 @@ const cardW = 70;
 const cardH = 98;
 const cardParts = [`<svg xmlns="http://www.w3.org/2000/svg" width="980" height="392" viewBox="0 0 980 392">`];
 const court = (x, y, rank, ink) => {
+  const palette = {
+    K: ["#24508b", "#c83e39", "#e2b64d"],
+    Q: ["#a52e55", "#2f689a", "#e2b64d"],
+    J: ["#2d775d", "#c7862f", "#d84a42"],
+  }[rank];
+  const [coat, trim, metal] = palette;
   const crown = rank === "K"
-    ? `<path d="M ${x + 19} ${y + 40} l 7 -12 9 10 9 -10 7 12 -4 6 h-24 z" fill="${ink}" fill-opacity=".82"/>`
+    ? `<path d="M-15 -24 l5 -9 5 7 5 -10 5 10 5 -7 5 9 -3 6 h-24z" fill="${metal}" stroke="${ink}" stroke-width="1"/><path d="M-14 -17 h28" stroke="${ink}" stroke-width="2"/>`
     : rank === "Q"
-      ? `<path d="M ${x + 21} ${y + 38} q 14 -13 28 0 l -3 6 h-22 z" fill="${ink}" fill-opacity=".82"/><circle cx="${x + 35}" cy="${y + 28}" r="4" fill="#e2c078"/>`
-      : `<path d="M ${x + 18} ${y + 40} q 17 -15 34 0 l -4 7 h-26 z" fill="${ink}" fill-opacity=".82"/>`;
-  return `<g><rect x="${x + 14}" y="${y + 20}" width="42" height="62" rx="7" fill="#fff8e8" fill-opacity=".62" stroke="${ink}" stroke-opacity=".36"/><path d="M ${x + 20} ${y + 53} q 15 -18 30 0 v22 h-30 z" fill="${ink}" fill-opacity=".72"/><circle cx="${x + 35}" cy="${y + 47}" r="8" fill="#e2c078" stroke="${ink}" stroke-opacity=".6"/>${crown}<path d="M ${x + 21} ${y + 78} q 14 -9 28 0" fill="none" stroke="${ink}" stroke-opacity=".7" stroke-width="3"/></g>`;
+      ? `<path d="M-14 -22 q14 -13 28 0 l-3 5 h-22z" fill="${metal}" stroke="${ink}" stroke-width="1"/><circle cy="-23" r="3" fill="${trim}" stroke="${ink}" stroke-width="1"/>`
+      : `<path d="M-15 -22 q11 -14 24 -4 l6 8 -7 3 h-24z" fill="${trim}" stroke="${ink}" stroke-width="1"/><path d="M8 -24 q10 -7 13 -1" fill="none" stroke="${metal}" stroke-width="3"/>`;
+  const figure = `<path d="M-20 27 Q-18 12 -8 8 L-5 1 H5 L8 8 Q18 12 20 27Z" fill="${coat}" stroke="${ink}" stroke-width="1.4"/><path d="M-8 9 L0 17 8 9 5 5 H-5Z" fill="${trim}" stroke="${ink}" stroke-width="1"/><path d="M-4 3 h8 v7 h-8z" fill="#e2b889" stroke="${ink}" stroke-width=".8"/><circle cy="-9" r="8" fill="#e2b889" stroke="${ink}" stroke-width="1"/><path d="M-8 -12 q8 -9 16 0 v4 h-16z" fill="#4a2e2b"/><path d="M-4 -6 q4 3 8 0" fill="none" stroke="${ink}" stroke-width=".9"/><path d="M-2 -1 h4" stroke="${ink}" stroke-width="1"/>${crown}<path d="M-14 22 h28" stroke="${metal}" stroke-width="2"/><text y="25" text-anchor="middle" fill="${metal}" font-family="serif" font-size="8" font-weight="700">${rank}</text>`;
+  return `<g transform="translate(${x + 35} ${y + 51})"><rect x="-22" y="-31" width="44" height="62" rx="7" fill="#fff8e8" stroke="${ink}" stroke-opacity=".42"/><path d="M-21 0 H21" stroke="${metal}" stroke-width="1.5"/><g>${figure}</g><g transform="rotate(180)">${figure}</g><circle cy="0" r="2.5" fill="${metal}" stroke="${ink}" stroke-width=".8"/></g>`;
 };
 for (let si = 0; si < suits.length; si += 1) {
   const [, glyph, ink] = suits[si];
