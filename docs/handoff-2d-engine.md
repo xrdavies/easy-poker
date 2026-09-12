@@ -38,11 +38,11 @@ Easy Poker：Cloudflare Workers 上的 8 人长牌德州现金桌。权威在 AP
 
 ### 已经做到
 
-- 扑克分支 HEAD：`3394f75 feat: draw the whole table in 2d-engine`
-- 引擎分支 HEAD：`bdad472 feat: add solid shapes, canvas textures, tweens, and hit-testing`
+- 扑克分支基线：`3394f75 feat: draw the whole table in 2d-engine`（本次资源迁移仍在工作树）
+- 引擎分支 HEAD：`b00c137 feat: add retained UI primitives and image upload usage`
 - 页面几乎只有一块全屏 `#game-canvas`。大厅/牌桌/结算都是 `PokerScene` 每帧用 `Renderer2D` 画 textured quad。
 - 旧 HTML 渲染器已删：`client/src/overlay.ts`、`table-surface.ts`、`table-engine.ts`、独立 `public/js/app.js`。
-- 音效：`PokerSfx` → `AudioManager.load('/sounds/*.m4a')`。文件在 `public/sounds/`。洗牌是 `shuffle-1` … `shuffle-5`，没有 `shuffle.m4a`。
+- 音效：`PokerSfx` → `AudioManager.load('/sounds/*.m4a')`。文件在 `public/sounds/`。洗牌是 `shuffle-1` … `shuffle-5`，没有 `shuffle.m4a`；可预生成的 UI/牌桌美术在 `public/assets/*.png`，由 `npm run art` 从 SVG 源生成。
 - 网络：`HttpClient` + `WebSocketTransport`（`client/src/net.ts`）。
 - 本地 `npm test`：扑克 40、引擎 80（引擎改过后要再跑引擎测试）。
 
@@ -65,7 +65,7 @@ Easy Poker：Cloudflare Workers 上的 8 人长牌德州现金桌。权威在 AP
 
 | API | 文件 | 用途 |
 |---|---|---|
-| `createSolidTexture` / `solidTextureBytes` / `uploadCanvasTexture` | `src/render2d/texture.ts` | 1×1 白贴图、canvas 图集上传 |
+| `createSolidTexture` / `solidTextureBytes` / `AssetManager.uploadImage` | `src/render2d/texture.ts` / `src/assets/manager.ts` | 1×1 白贴图、预生成图片上传 |
 | `Shape2D` | `src/render2d/shape.ts` | 染色方块（白贴图 × color） |
 | `Tween` / `TweenPlayer` / `tweenValue` / `easeOut*` | `src/animation/tween.ts` | 发牌缩放等 |
 | `hitTest` / `rectContains` / `HitRect` | `src/ui/hit.ts` | 点按钮 |
@@ -84,7 +84,7 @@ Easy Poker：Cloudflare Workers 上的 8 人长牌德州现金桌。权威在 AP
   client/src/scene.ts        每帧绘制 + hitTest 点击
   client/src/session.ts      快照、WS、SFX、发牌队列（无 DOM）
   client/src/painter.ts      rect / disc / label / button / card
-  client/src/assets.ts       牌图集、圆点、绒面 stadium 烘焙
+  client/src/assets.ts       预生成图片资源、牌图集 UV、绒面几何布局
   client/src/sfx.ts          AudioManager
   client/src/net.ts          /config.json → apiOrigin；HTTP/WS
         │
@@ -108,7 +108,7 @@ Easy Poker：Cloudflare Workers 上的 8 人长牌德州现金桌。权威在 AP
 - **`PokerSession`**：屏幕 `lobby | table | settle`；创建/加入/坐下/行动/补码/离开；`applySnapshot`；发牌队列 220ms；超时 tick SFX（仅自己行动且 ≤5s）；摊牌 win/lose。
 - **`PokerScene`**：`EngineSystem`。`update` 里脉冲；`render` 里按 session 重画；`engine.input.onInput` 做 pointer hit。点击 id：`tab:*` `dur:*` `toggle:*` `btn:*` `act:*` `runout:*` `buyin:*` `slider` `maxbuyin:+/-`。
 - **座位**：`PORTRAIT_SEATS` / `LANDSCAPE_SEATS` 是相对绒面的百分比。自己坐下后座位旋转，自己在 vis=0（底边）。
-- **牌**：`assets.ts` 一次烘焙 52 张 + 牌背图集。`shownHoles` / `shownBoard` 带 `at` 时间戳，缩放 `tweenValue(0.65|0.7, 1, t, easeOutBack)`。
+- **牌**：`scripts/generate-art.mjs` 预生成 52 张 + 牌背图集 PNG，`assets.ts` 只维护 UV。`shownHoles` / `shownBoard` 带 `at` 时间戳，缩放 `tweenValue(0.65|0.7, 1, t, easeOutBack)`。
 - **绒面**：按像素尺寸 + 横竖屏烘焙一张 GPU 贴图，不是 CSS。
 
 调试：`window.__EASY_POKER_USES_2D_ENGINE`、`window.__easyPokerEngine`、`window.__easyPokerSession`。
@@ -152,23 +152,20 @@ Node 测试是 **strip-types only**：class 构造器不要写 `constructor(read
 
 按手感，不是按文件名：
 
-1. **点击不稳定**  
-   引擎按钮靠 canvas `pointerdown` + `hitTest`。Playwright 用坐标点「创建并进入」曾经点不中（程序里调 `session.createTable()` 是成功的）。`#ime-root` 全屏叠在 canvas 上（`pointer-events: none`，input 为 `auto`）。需要：真机点按钮、滑条、标签页，修命中或把 IME 层改成只包 input 的盒子。
+1. **点击仍需真机复核**
+   引擎按钮靠 canvas `pointerdown` + `hitTest`，按钮命中有 3px 容错，滑条使用 pointer capture，canvas 关闭浏览器 touch gesture。仍建议在真实触屏设备复核创建、标签页和滑条。
 
-2. **动画还很薄**  
-   有发牌缩放。没有：筹码飞向底池、行动按钮按压、摊牌入场、座位 acting 光圈（现在是 `sin` 脉冲）。应用引擎 `Tween` / `TweenPlayer`，不要加回 CSS `@keyframes`。
+2. **动画仍可增强**
+   已有发牌缩放、筹码飞向底池、行动按钮按压和座位 acting 光圈；摊牌面板目前直接出现，后续若需要入场动画应继续使用引擎 `Tween` / `TweenPlayer`，不要加回 CSS `@keyframes`。
 
-3. **视觉比旧 HTML 粗**  
-   按钮是直角色块；大厅花色标题整行金色（红桃/方片应红）；中文 `Text2D` 偏糊；移动端顶栏用了缩短文案（邀请/补码/起身/退出），桌号在窄屏没画。旧参考在未提交的 QA 图和（仍存在的）`public/css/app.css`——那份 CSS **已不挂到页面上**，只当视觉备忘。
-
-4. **文档过时**  
-   `docs/architecture.md` 仍写 CSS 双布局、`.wav`、发牌 CSS 动画。以本文件和 `client/src/*` 为准。
+3. **视觉仍需浏览器复核**
+   当前已补齐花色颜色、圆角/描边控件、预生成背景/绒面/牌图集、桌面/手机比例、摊牌遮罩与牌背纹理；中文 `Text2D` 清晰度和移动端文案仍可能需要真机微调。旧参考在未提交的 QA 图和（仍存在的）`public/css/app.css`——那份 CSS **已不挂到页面上**，只当视觉备忘。
 
 5. **无 WebGPU**  
    现在只有一行字。要不要 Canvas2D 降级由产品定；不要 silently 画一套 DOM 牌桌。
 
-6. **引擎还可补、但先别造轮子**  
-   圆角矩形/九宫、按钮组件、SDF 文字、scene graph。缺了再在 `feat/scene-ui` 加，并写 vitest（能不碰 GPU 的逻辑不要 `GPUTextureUsage` 顶层常量）。
+6. **引擎 UI 基础层已补齐**
+   `UIRoot` / `UIContainer` / `UILabel` / `UIImage` / `UIButton` 位于 `engine/src/ui/components.ts`，通过 `UIRenderer` 适配器交给 Renderer2D/Text2D；按钮支持 disabled、pressed、pointer cancel 和 click。复杂布局/主题仍由产品层决定。
 
 ## 测试约定
 

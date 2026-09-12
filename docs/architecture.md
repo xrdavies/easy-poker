@@ -40,7 +40,7 @@ Durable Object 用 `storage.put("table", table.toJSON())` 持久化。行动截�
 
 ## 前端
 
-`public/` 为单页：大厅（昵称 / 创建 / 加入）→ 牌桌 → 结算。启动时请求 `/config.json` 得到 `apiOrigin`，随后 HTTP 与 WebSocket 都打到 API Worker。CSS 用横屏桌面与竖屏手机两套布局。音效为 `public/sounds/*.wav`（弃牌 / 过牌 / 加注 / 发牌 / 结算）。发牌与座位高亮使用 CSS 动画。
+`public/` 为单页：大厅（昵称 / 创建 / 加入）→ 牌桌 → 结算。启动时请求 `/config.json` 得到 `apiOrigin`，随后 HTTP 与 WebSocket 都打到 API Worker。浏览器画面由 `PokerScene` 通过 `@xrdavies/2d-engine` 的 `Renderer2D` 绘制，按 viewport 自动切换横屏桌面与竖屏手机布局；仅昵称、桌号、密码、买入次数保留原生输入框并由 `UIBridge` 对齐。背景、绒面、牌图集和 UI 圆角均为 `public/assets/*.png` 预生成资源，运行时只上传到 GPU；音效为 `public/sounds/*.m4a`，发牌缩放、按钮反馈和输入命中使用引擎的 tween / hit-test。UI 文案沿用平台字体，不额外捆绑需要运行时绘制的自定义字体文件。
 
 ## 非目标（刻意不做）
 

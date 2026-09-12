@@ -17,6 +17,11 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(scene, /isPortraitTable\(width, height\)/);
     assert.match(assets, /aspect|1\.65|2\.2/);
     assert.match(assets, /roundStadium|stadiumRect/);
+    assert.match(assets, /AssetManager/);
+    assert.doesNotMatch(assets, /createElement\(["']canvas/);
+    for (const art of ["background", "cards", "circle", "corners", "felt-landscape", "felt-portrait"]) {
+      assert.equal(existsSync(fileURLToPath(url(`../public/assets/${art}.png`))), true);
+    }
     assert.match(scene, /shownHoles/);
     assert.match(scene, /drawShowdown/);
     assert.equal(existsSync(fileURLToPath(url("../client/src/overlay.ts"))), false);

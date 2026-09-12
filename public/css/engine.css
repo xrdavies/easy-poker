@@ -14,6 +14,8 @@ html, body {
   height: 100%;
   display: block;
   outline: none;
+  touch-action: none;
+  user-select: none;
 }
 #ime-root {
   position: fixed;
