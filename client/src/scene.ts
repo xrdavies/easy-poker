@@ -5,6 +5,8 @@ import {
   easeOutBack,
   hitTest,
   tweenValue,
+  UIInput,
+  UISlider,
   type EngineSystem,
   type NormalizedInputEvent,
 } from "@xrdavies/2d-engine";
@@ -33,11 +35,11 @@ export type ImeLayout = {
 };
 
 const CHIP = [
-  { v: 500, c: rgb(156, 39, 176) },
-  { v: 100, c: rgb(30, 30, 30) },
-  { v: 25, c: rgb(46, 125, 50) },
-  { v: 5, c: rgb(183, 28, 28) },
-  { v: 1, c: rgb(230, 220, 200) },
+  { v: 500 },
+  { v: 100 },
+  { v: 25 },
+  { v: 5 },
+  { v: 1 },
 ];
 
 export class PokerScene implements EngineSystem {
@@ -47,7 +49,13 @@ export class PokerScene implements EngineSystem {
   private painter: Painter | null = null;
   private assetsLoading: Promise<void> | null = null;
   private assetsError = false;
-  private slider: { min: number; max: number; x: number; w: number } | null = null;
+  private slider: UISlider | null = null;
+  private readonly uiInputs = {
+    nick: new UIInput("ime-nick", { x: 0, y: 0, width: 0, height: 0 }),
+    table: new UIInput("ime-table", { x: 0, y: 0, width: 0, height: 0 }),
+    pass: new UIInput("ime-pass", { x: 0, y: 0, width: 0, height: 0 }),
+    buyin: new UIInput("ime-buyin", { x: 0, y: 0, width: 0, height: 0 }, "1", "", "number"),
+  };
   private dragging = false;
   private pulse = 0;
   private pressedId = "";
@@ -100,6 +108,7 @@ export class PokerScene implements EngineSystem {
     if (this.pressedId && performance.now() > this.pressedUntil) this.pressedId = "";
     p.pressedId = this.pressedId;
     this.ime = {};
+    for (const input of Object.values(this.uiInputs)) input.visible = false;
     p.felt(0, 0, width, height, this.assets.backgroundTexture(pixelWidth, pixelHeight), 0);
 
     if (this.session.screen === "lobby") this.drawLobby(p, width, height);
@@ -142,11 +151,26 @@ export class PokerScene implements EngineSystem {
     }
   }
 
+  private setInput(key: keyof typeof this.uiInputs, box: ImeBox): UIInput {
+    const input = this.uiInputs[key];
+    input.rect = { x: box.x, y: box.y, width: box.w, height: box.h };
+    input.visible = true;
+    this.ime[key] = box;
+    return input;
+  }
+
   onInput(event: NormalizedInputEvent): void {
     if (event.kind !== "pointer") return;
     const x = event.coordinates.viewport.x;
     const y = event.coordinates.viewport.y;
     if (event.type === "pointerdown") {
+      if (this.slider && !this.slider.disabled && this.slider.contains(x, y)) {
+        this.dragging = true;
+        this.slider.dragging = true;
+        this.setSlider(x);
+        this.engine.input?.capturePointer(event.pointerId);
+        return;
+      }
       const hit = hitTest(this.painter?.hits ?? [], x, y);
       if (hit) {
         this.pressedId = hit.id;
@@ -158,6 +182,7 @@ export class PokerScene implements EngineSystem {
       this.setSlider(x);
     } else if (event.type === "pointerup" || event.type === "pointercancel") {
       this.dragging = false;
+      if (this.slider) this.slider.dragging = false;
       this.pressedId = "";
       this.engine.input?.releasePointer(event.pointerId);
     }
@@ -166,8 +191,8 @@ export class PokerScene implements EngineSystem {
   private setSlider(x: number) {
     const s = this.slider;
     if (!s) return;
-    const t = Math.min(1, Math.max(0, (x - s.x) / Math.max(1, s.w)));
-    this.session.raiseTo = Math.round(s.min + t * (s.max - s.min));
+    s.setValue(s.valueAt(x));
+    this.session.raiseTo = s.value;
     this.session.emit();
   }
 
@@ -246,8 +271,9 @@ export class PokerScene implements EngineSystem {
     const fieldH = 40;
     const randW = 72;
     const nickW = cardW - 48 - randW - 8;
-    this.ime.nick = { x: cardX + 24, y, w: nickW, h: fieldH };
-    p.roundRect(cardX + 24, y, nickW, fieldH, P.field, 3, 8);
+    const nickInput = this.setInput("nick", { x: cardX + 24, y, w: nickW, h: fieldH });
+    nickInput.value = s.nickname;
+    p.input(nickInput, 3);
     p.button("btn:random", cardX + 24 + nickW + 8, y, randW, fieldH, "随机名", {
       fill: P.dim,
       ink: P.ink,
@@ -292,13 +318,15 @@ export class PokerScene implements EngineSystem {
     } else {
       p.label("游戏桌号码", cardX + 24, y, { fill: P.muted, layer: 4, font: "13px 'PingFang SC', sans-serif" });
       y += 22;
-      this.ime.table = { x: cardX + 24, y, w: cardW - 48, h: fieldH };
-      p.roundRect(cardX + 24, y, cardW - 48, fieldH, P.field, 3, 8);
+      const tableInput = this.setInput("table", { x: cardX + 24, y, w: cardW - 48, h: fieldH });
+      tableInput.value = s.joinNumber;
+      p.input(tableInput, 3);
       y += fieldH + 12;
       p.label("密码", cardX + 24, y, { fill: P.muted, layer: 4, font: "13px 'PingFang SC', sans-serif" });
       y += 22;
-      this.ime.pass = { x: cardX + 24, y, w: cardW - 48, h: fieldH };
-      p.roundRect(cardX + 24, y, cardW - 48, fieldH, P.field, 3, 8);
+      const passInput = this.setInput("pass", { x: cardX + 24, y, w: cardW - 48, h: fieldH });
+      passInput.value = s.joinPassword;
+      p.input(passInput, 3);
       y += fieldH + 16;
       p.button("btn:join", cardX + 24, y, cardW - 48, 44, "加入游戏桌");
     }
@@ -456,7 +484,7 @@ export class PokerScene implements EngineSystem {
       const t = Math.min(1, (performance.now() - this.potFlight.at) / 360);
       if (t < 1) {
         const eased = tweenValue(0, 1, t, easeOutBack);
-        p.disc(this.potFlight.x + (cx - this.potFlight.x) * eased, this.potFlight.y + (cy - 42 - this.potFlight.y) * eased, 7, CHIP[4]!.c, 11);
+        p.chip(1, this.potFlight.x + (cx - this.potFlight.x) * eased, this.potFlight.y + (cy - 42 - this.potFlight.y) * eased, 7, 11);
       } else {
         this.potFlight = null;
       }
@@ -639,10 +667,8 @@ export class PokerScene implements EngineSystem {
       ax -= slW + 8;
       const slX = ax;
       const slY = y + (compact ? 96 : stacked ? 112 : 28);
-      p.rect(slX, slY, slW, 8, P.dim, 24);
-      const t = (this.session.raiseTo - min) / Math.max(1, max - min);
-      p.disc(slX + t * slW, slY + 4, 8, P.gold, 25);
-      this.slider = { min, max, x: slX, w: slW };
+      this.slider = new UISlider("slider", { x: slX, y: slY - 12, width: slW, height: 32 }, min, max, this.session.raiseTo);
+      p.slider(this.slider, 24);
       p.hit("slider", slX, slY - 12, slW, 32, 26);
     }
     if (legal.canCall) add("act:call", `跟注 ${fmtChips(legal.callAmount)}`, P.call, 100);
@@ -658,7 +684,7 @@ export class PokerScene implements EngineSystem {
       const n = Math.min(4, Math.floor(left / d.v));
       left -= n * d.v;
       for (let k = 0; k < n; k++) {
-        p.disc(cx - 16 + (i % 6) * 7, cy - Math.floor(i / 6) * 5, 7, d.c, layer);
+        p.chip(d.v, cx - 16 + (i % 6) * 7, cy - Math.floor(i / 6) * 5, 7, layer);
         i += 1;
       }
     }
@@ -719,8 +745,9 @@ export class PokerScene implements EngineSystem {
       layer: 52,
       maxWidth: w - 48,
     });
-    this.ime.buyin = { x: x + 24, y: y + 100, w: w - 48, h: 40 };
-    p.roundRect(x + 24, y + 100, w - 48, 40, P.field, 52, 8);
+    const buyinInput = this.setInput("buyin", { x: x + 24, y: y + 100, w: w - 48, h: 40 });
+    buyinInput.value = String(this.session.buyinN);
+    p.input(buyinInput, 52);
     p.button("buyin:cancel", x + 24, y + h - 56, (w - 56) / 2, 40, "取消", { fill: P.dim, ink: P.ink, layer: 53 });
     p.button("buyin:ok", x + 32 + (w - 56) / 2, y + h - 56, (w - 56) / 2, 40, snap?.me?.sitting ? "补码" : "坐下", {
       layer: 53,

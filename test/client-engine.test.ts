@@ -91,6 +91,7 @@ describe("2d-engine backed client", () => {
     assert.match(html, /id="ime-table"/);
     assert.match(html, /id="ime-pass"/);
     assert.match(css, /#game-canvas/);
+    assert.doesNotMatch(html, /app\.css/);
     assert.doesNotMatch(html, /id="actions"/);
     assert.doesNotMatch(html, /id="felt"/);
   });

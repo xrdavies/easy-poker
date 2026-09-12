@@ -9,6 +9,7 @@ export const CARD_H = 98;
 const RANKS = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"];
 const SUITS = ["s", "h", "d", "c"];
 type Corner = "tl" | "tr" | "bl" | "br";
+const CHIP_VALUES = [500, 100, 25, 5, 1];
 
 const CORNER_UV: Record<Corner, TextureRegion> = {
   tl: { x: 0, y: 0, width: 0.5, height: 0.5 },
@@ -41,6 +42,14 @@ function cardRegions(): Map<string, TextureRegion> {
   return uv;
 }
 
+function chipRegions(): Map<number, TextureRegion> {
+  const uv = new Map<number, TextureRegion>();
+  for (let i = 0; i < CHIP_VALUES.length; i += 1) {
+    uv.set(CHIP_VALUES[i]!, { x: i / CHIP_VALUES.length, y: 0, width: 1 / CHIP_VALUES.length, height: 1 });
+  }
+  return uv;
+}
+
 export function stadiumRect(w: number, h: number, portrait: boolean, viewportHeight = h) {
   if (portrait) {
     const tw = Math.min(w * 0.96, Math.min(viewportHeight * 0.62, 640) / 1.65);
@@ -56,20 +65,23 @@ export class GpuAssets {
   readonly white: GPUTexture;
   readonly circle: GPUTexture;
   readonly cards: GPUTexture;
+  readonly chips: GPUTexture;
   readonly feltLandscape: GPUTexture;
   readonly feltPortrait: GPUTexture;
   readonly background: GPUTexture;
   readonly corners: GPUTexture;
   readonly cardUv = cardRegions();
+  readonly chipUv = chipRegions();
 
   private constructor(
     private readonly manager: AssetManager,
     device: GPUDevice,
-    textures: Record<"circle" | "cards" | "feltLandscape" | "feltPortrait" | "background" | "corners", GPUTexture>,
+    textures: Record<"circle" | "cards" | "chips" | "feltLandscape" | "feltPortrait" | "background" | "corners", GPUTexture>,
   ) {
     this.white = createSolidTexture(device);
     this.circle = textures.circle;
     this.cards = textures.cards;
+    this.chips = textures.chips;
     this.feltLandscape = textures.feltLandscape;
     this.feltPortrait = textures.feltPortrait;
     this.background = textures.background;
@@ -82,6 +94,7 @@ export class GpuAssets {
       const images = await Promise.all([
         ["circle", "/assets/circle.png"],
         ["cards", "/assets/cards.png"],
+        ["chips", "/assets/chips.png"],
         ["felt-landscape", "/assets/felt-landscape.png"],
         ["felt-portrait", "/assets/felt-portrait.png"],
         ["background", "/assets/background.png"],
@@ -91,6 +104,7 @@ export class GpuAssets {
       return new GpuAssets(manager, device, {
         circle: textures.circle!,
         cards: textures.cards!,
+        chips: textures.chips!,
         feltLandscape: textures["felt-landscape"]!,
         feltPortrait: textures["felt-portrait"]!,
         background: textures.background!,
@@ -104,6 +118,10 @@ export class GpuAssets {
 
   cardRegion(code: string): TextureRegion {
     return this.cardUv.get(code) ?? this.cardUv.get("back")!;
+  }
+
+  chipRegion(value: number): TextureRegion {
+    return this.chipUv.get(value) ?? this.chipUv.get(1)!;
   }
 
   cornerRegion(corner: Corner): TextureRegion {

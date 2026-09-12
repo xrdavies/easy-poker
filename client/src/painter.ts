@@ -5,6 +5,8 @@ import {
   type HitRect,
   type TextQuad,
   type TexturedQuad,
+  type UIInput,
+  type UISlider,
 } from "@xrdavies/2d-engine";
 import { CARD_H, CARD_W, type GpuAssets } from "./assets.ts";
 
@@ -132,6 +134,29 @@ export class Painter {
         layer,
       }),
     );
+  }
+
+  chip(value: number, cx: number, cy: number, r: number, layer: number) {
+    this.items.push(
+      new Image2D({
+        texture: this.assets.chips,
+        uv: this.assets.chipRegion(value),
+        position: { x: cx, y: cy },
+        size: { x: r * 2, y: r * 2 },
+        layer,
+      }),
+    );
+  }
+
+  input(node: UIInput, layer = node.layer) {
+    this.roundRect(node.rect.x, node.rect.y, node.rect.width, node.rect.height, P.field, layer, 8);
+  }
+
+  slider(node: UISlider, layer = node.layer) {
+    const { x, y, width, height } = node.rect;
+    this.rect(x, y + (height - 8) / 2, width, 8, P.dim, layer);
+    const t = (node.value - node.min) / Math.max(1, node.max - node.min);
+    this.disc(x + t * width, y + height / 2, Math.min(10, height / 2), P.gold, layer + 1);
   }
 
   label(

@@ -19,9 +19,12 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(assets, /roundStadium|stadiumRect/);
     assert.match(assets, /AssetManager/);
     assert.doesNotMatch(assets, /createElement\(["']canvas/);
-    for (const art of ["background", "cards", "circle", "corners", "felt-landscape", "felt-portrait"]) {
+    for (const art of ["background", "cards", "chips", "circle", "corners", "felt-landscape", "felt-portrait"]) {
       assert.equal(existsSync(fileURLToPath(url(`../public/assets/${art}.png`))), true);
     }
+    const artScript = read("../scripts/generate-art.mjs");
+    assert.match(artScript, /court/);
+    assert.doesNotMatch(artScript, /#5082be/);
     assert.match(scene, /shownHoles/);
     assert.match(scene, /drawShowdown/);
     assert.equal(existsSync(fileURLToPath(url("../client/src/overlay.ts"))), false);

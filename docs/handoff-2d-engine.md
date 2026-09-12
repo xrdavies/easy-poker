@@ -159,13 +159,13 @@ Node 测试是 **strip-types only**：class 构造器不要写 `constructor(read
    已有发牌缩放、筹码飞向底池、行动按钮按压和座位 acting 光圈；摊牌面板目前直接出现，后续若需要入场动画应继续使用引擎 `Tween` / `TweenPlayer`，不要加回 CSS `@keyframes`。
 
 3. **视觉仍需浏览器复核**
-   当前已补齐花色颜色、圆角/描边控件、预生成背景/绒面/牌图集、桌面/手机比例、摊牌遮罩与牌背纹理；中文 `Text2D` 清晰度和移动端文案仍可能需要真机微调。旧参考在未提交的 QA 图和（仍存在的）`public/css/app.css`——那份 CSS **已不挂到页面上**，只当视觉备忘。
+   当前已补齐花色颜色、圆角/描边控件、预生成背景/绒面/牌图集/筹码图集、桌面/手机比例、摊牌遮罩与牌背纹理；中文 `Text2D` 清晰度和移动端文案仍可能需要真机微调。旧 DOM UI 的 `public/css/app.css` 已删除；`public/css/engine.css` 只负责 Canvas 外壳和输入法桥接所需的原生输入框。
 
 5. **无 WebGPU**  
    现在只有一行字。要不要 Canvas2D 降级由产品定；不要 silently 画一套 DOM 牌桌。
 
 6. **引擎 UI 基础层已补齐**
-   `UIRoot` / `UIContainer` / `UILabel` / `UIImage` / `UIButton` 位于 `engine/src/ui/components.ts`，通过 `UIRenderer` 适配器交给 Renderer2D/Text2D；按钮支持 disabled、pressed、pointer cancel 和 click。复杂布局/主题仍由产品层决定。
+   `UIRoot` / `UIContainer` / `UILabel` / `UIImage` / `UIButton` / `UIInput` / `UISlider` 位于 `engine/src/ui/components.ts`，通过 `UIRenderer` 适配器交给 Renderer2D/Text2D；按钮支持 disabled、pressed、pointer cancel 和 click，输入框与滑动条支持值同步及范围/步进约束。复杂布局/主题仍由产品层决定。
 
 ## 测试约定
 
