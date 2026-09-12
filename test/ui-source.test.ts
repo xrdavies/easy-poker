@@ -23,7 +23,7 @@ describe("client UI source (shipped public assets)", () => {
       assert.equal(existsSync(fileURLToPath(url(`../public/assets/${art}.png`))), true);
     }
     const artScript = read("../scripts/generate-art.mjs");
-    assert.match(artScript, /court/);
+    assert.doesNotMatch(artScript, /court/);
     assert.doesNotMatch(artScript, /#5082be/);
     assert.match(scene, /shownHoles/);
     assert.match(scene, /drawShowdown/);
