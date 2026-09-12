@@ -64,10 +64,12 @@ async function boot(): Promise<void> {
     session.joinPassword = fields.pass.value;
   });
   fields.buyin.addEventListener("input", () => {
-    session.buyinN = Math.max(1, Number(fields.buyin.value) || 1);
+    session.buyinN = Math.min(Number(fields.buyin.max) || 99, Math.max(1, Number(fields.buyin.value) || 1));
   });
 
-  document.body.addEventListener("pointerdown", () => void sfx.unlock(), { once: true });
+  const unlockAudio = () => void sfx.unlock();
+  document.body.addEventListener("pointerdown", unlockAudio, { once: true, capture: true });
+  document.body.addEventListener("keydown", unlockAudio, { once: true, capture: true });
 
   try {
     const engine = await Engine.create({ canvas, autoStart: true, input: true });
@@ -75,13 +77,16 @@ async function boot(): Promise<void> {
       clearColor: { r: 0.027, g: 0.063, b: 0.094, a: 1 },
       maxInstances: 2048,
     });
-    const scene = new PokerScene(engine, renderer, session, fields);
+    const scene = new PokerScene(engine, renderer, session, bridge, fields);
     engine.addSystem(scene);
     window.__easyPokerEngine = engine;
     window.__easyPokerSession = session;
     document.body.classList.add("engine-gpu");
     session.onChange = () => {
-      /* scene reads session each frame */
+      const lobby = session.screen === "lobby";
+      const changed = document.body.classList.contains("lobby-screen") !== lobby;
+      document.body.classList.toggle("lobby-screen", lobby);
+      if (changed) engine.resize();
     };
     session.start();
     canvas.focus();

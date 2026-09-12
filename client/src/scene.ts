@@ -5,6 +5,7 @@ import {
   easeOutBack,
   hitTest,
   tweenValue,
+  UIBridge,
   UIInput,
   UISlider,
   type EngineSystem,
@@ -68,6 +69,7 @@ export class PokerScene implements EngineSystem {
     private readonly engine: Engine,
     private readonly renderer: Renderer2D,
     readonly session: PokerSession,
+    private readonly bridge: UIBridge,
     private readonly fields: {
       nick: HTMLInputElement;
       table: HTMLInputElement;
@@ -119,10 +121,34 @@ export class PokerScene implements EngineSystem {
       p.rect(0, 0, width, height, rgb(0, 0, 0, 0.45), 39);
     }
 
-    if (this.session.buyinOpen) this.drawBuyin(p, width, height);
+    if (this.session.buyinOpen) {
+      p.hits = [];
+      p.controls = [];
+      this.drawBuyin(p, width, height);
+    }
     if (this.session.toast) this.drawToast(p, width, height);
     this.syncIme();
+    this.bridge.describe(this.accessibleDescription());
+    this.bridge.announce(this.session.toast);
+    this.bridge.syncControls(p.controls, (control, value) => {
+      if (control.kind === "slider" && value != null) {
+        this.session.raiseTo = value;
+        this.session.emit();
+      } else {
+        this.click(control.id, control.rect.x + control.rect.width / 2);
+      }
+    });
     this.renderer.render(p.items, this.camera);
+  }
+
+  private accessibleDescription(): string {
+    const s = this.session;
+    const snap = s.snapshot;
+    if (s.buyinOpen) return "Easy Poker 补充筹码对话框";
+    if (s.screen === "lobby") return `Easy Poker 大厅，${s.tab === "create" ? "创建游戏桌" : "加入游戏桌"}`;
+    if (s.screen === "settle") return "Easy Poker 游戏桌结算";
+    const state = snap?.street ? String(snap.street).toUpperCase() : snap?.status === "waiting" ? "等待玩家" : "本手结算";
+    return `Easy Poker 游戏桌 ${snap?.tableNumber ?? ""}，${state}，底池 ${fmtChips(snap?.pot ?? 0)}`;
   }
 
   private placeIme(el: HTMLInputElement, box: ImeBox | null | undefined) {
@@ -147,6 +173,10 @@ export class PokerScene implements EngineSystem {
       f.nick.value = this.session.nickname;
     }
     if (this.ime.buyin && document.activeElement !== f.buyin) {
+      const snap = this.session.snapshot;
+      f.buyin.max = String(snap?.config?.unlimitedBuyin
+        ? 99
+        : Math.max(1, (snap?.config?.maxBuyins ?? 10) - (snap?.me?.buyinCount ?? 0)));
       f.buyin.value = String(this.session.buyinN);
     }
   }
@@ -283,10 +313,12 @@ export class PokerScene implements EngineSystem {
     p.button("tab:create", cardX + 24, y, tabW, 40, "创建游戏桌", {
       fill: s.tab === "create" ? P.gold : P.dim,
       ink: s.tab === "create" ? rgb(26, 18, 8) : P.muted,
+      selected: s.tab === "create",
     });
     p.button("tab:join", cardX + 24 + tabW + 6, y, tabW, 40, "加入游戏桌", {
       fill: s.tab === "join" ? P.gold : P.dim,
       ink: s.tab === "join" ? rgb(26, 18, 8) : P.muted,
+      selected: s.tab === "join",
     });
     y += 56;
     if (s.tab === "create") {
@@ -295,17 +327,18 @@ export class PokerScene implements EngineSystem {
       const durationW = cardW - 48;
       p.roundRect(cardX + 24, y, durationW, 40, P.field, 3, 8);
       const selected = DURATION_OPTIONS.find((option) => option.minutes === s.durationMinutes) ?? DURATION_OPTIONS[0]!;
-      p.label(selected.label, cardX + 36, y + 11, { layer: 4 });
-      p.label("⌄", cardX + cardW - 48, y + 9, { fill: P.muted, layer: 4, font: "18px sans-serif" });
-      p.hit("dur:prev", cardX + 24, y, durationW / 2, 40, 6);
-      p.hit("dur:next", cardX + 24 + durationW / 2, y, durationW / 2, 40, 6);
+      p.button("dur:prev", cardX + 24, y, 40, 40, "‹", { fill: P.dim, ink: P.ink, layer: 4, accessibilityLabel: "上一个游戏时长" });
+      p.labelCenter(selected.label, cardX + cardW / 2, y + 20, { layer: 4 });
+      p.button("dur:next", cardX + cardW - 64, y, 40, 40, "›", { fill: P.dim, ink: P.ink, layer: 4, accessibilityLabel: "下一个游戏时长" });
       y += 52;
       this.toggle(p, "toggle:unlimited", cardX + 24, y, s.unlimited, "无限 buy-in");
       y += 32;
       if (!s.unlimited) {
-        p.label(`最大 buy-in 次数  ${s.maxBuyins}`, cardX + 24, y + 6, { fill: P.muted, layer: 4 });
-        p.button("maxbuyin:-", cardX + cardW - 24 - 80, y, 36, 28, "−", { fill: P.dim, ink: P.ink });
-        p.button("maxbuyin:+", cardX + cardW - 24 - 40, y, 36, 28, "+", { fill: P.dim, ink: P.ink });
+        p.label("最大 buy-in 次数", cardX + 24, y + 6, { fill: P.muted, layer: 4 });
+        const controlsX = cardX + cardW - 134;
+        p.button("maxbuyin:-", controlsX, y, 32, 28, "−", { fill: P.dim, ink: P.ink, accessibilityLabel: "减少最大买入次数" });
+        p.labelCenter(String(s.maxBuyins), controlsX + 52, y + 14, { fill: P.muted, layer: 4 });
+        p.button("maxbuyin:+", controlsX + 70, y, 32, 28, "+", { fill: P.dim, ink: P.ink, accessibilityLabel: "增加最大买入次数" });
         y += 36;
       }
       this.toggle(p, "toggle:straddle", cardX + 24, y, s.straddle, "允许 Straddle（默认关）");
@@ -333,10 +366,11 @@ export class PokerScene implements EngineSystem {
   }
 
   private toggle(p: Painter, id: string, x: number, y: number, on: boolean, label: string) {
-    p.rect(x, y, 18, 18, on ? P.gold : P.dim, 4);
+    p.rect(x, y, 18, 18, on ? P.gold : rgb(58, 81, 99), 4);
+    if (!on) p.rect(x + 2, y + 2, 14, 14, P.field, 5);
     if (on) p.label("✓", x + 2, y - 1, { fill: rgb(26, 18, 8), layer: 5, font: "14px sans-serif" });
     p.label(label, x + 26, y, { layer: 5 });
-    p.hit(id, x, y, 280, 22, 6);
+    p.hit(id, x, y, 280, 22, 6, { label, pressed: on });
   }
 
   private drawTable(
@@ -349,12 +383,22 @@ export class PokerScene implements EngineSystem {
     const s = this.session;
     const snap = s.snapshot;
     const compact = isPortraitTable(width, height);
+    const shortLandscape = !compact && height < 500;
+    const compactDock = compact || height < 500;
     const top = compact ? 84 : 54;
-    const dock = compact ? Math.min(120, height * 0.18) : width < 1100 ? Math.min(148, height * 0.22) : Math.min(100, height * 0.16);
+    const dock = shortLandscape
+      ? 104
+      : compactDock
+      ? Math.min(148, height * (height < 500 ? 0.4 : 0.27))
+      : width < 1100
+        ? Math.min(148, height * 0.25)
+        : Math.min(100, height * 0.16);
     const feltH = height - top - dock;
     const portrait = isPortraitTable(width, height);
-    const table = stadiumRect(width, feltH, portrait, height);
-    table.y += top;
+    const table = shortLandscape
+      ? { x: width * 0.03, y: top + feltH * 0.03, w: width * 0.94, h: feltH * 0.94 }
+      : stadiumRect(width, feltH, portrait, height);
+    if (!shortLandscape) table.y += top;
     p.rect(0, 0, width, top, rgb(5, 12, 18, 0.86), 2);
     p.label(compact ? "Easy" : "Easy Poker", 12, 14, { fill: P.gold, font: "16px 'PingFang SC', sans-serif", layer: 5 });
     if (snap) {
@@ -362,7 +406,7 @@ export class PokerScene implements EngineSystem {
         fill: P.muted,
         font: "13px ui-monospace, monospace",
         layer: 5,
-        maxWidth: compact ? Math.max(80, width - 250) : Math.max(90, width - 300),
+        maxWidth: compact ? Math.max(80, width - 82) : Math.max(90, width - 300),
       });
       if (!compact && snap.remainingMs != null) {
         p.label(`剩余 ${fmtMs(snap.remainingMs)}`, 270, 16, { fill: P.gold, font: "13px ui-monospace, monospace", layer: 5 });
@@ -370,18 +414,21 @@ export class PokerScene implements EngineSystem {
     }
     const sitting = Boolean(snap?.me?.sitting);
     let bx = width - 8;
-    const btn = (id: string, label: string, fill: Color, w = 72) => {
+    const btn = (id: string, label: string, fill: Color, w = 72, disabled = false) => {
       bx -= w + 6;
-      p.button(id, bx, compact ? 46 : 8, w, 32, label, { fill, ink: fill === P.gold ? rgb(26, 18, 8) : P.ink });
+      p.button(id, bx, compact ? 46 : 8, w, 32, label, { fill, ink: fill === P.gold ? rgb(26, 18, 8) : P.ink, disabled });
     };
-    btn("btn:leave", "退出", P.dim, compact ? 44 : 56);
-    if (sitting) {
-      btn("btn:stand", "起身", P.dim, compact ? 44 : 56);
-      btn("btn:rebuy", "补码", P.dim, compact ? 44 : 56);
-    } else {
-      btn("btn:sit", "坐下", P.gold, compact ? 48 : 64);
+    if (!(snap?.lastResult && !snap.street)) {
+      btn("btn:leave", "退出", P.dim, compact ? 44 : 56);
+      if (sitting) {
+        btn("btn:stand", "起身", P.dim, compact ? 44 : 56);
+        const canRebuy = snap?.config.unlimitedBuyin || (snap?.me?.buyinCount ?? 0) < (snap?.config.maxBuyins ?? 10);
+        btn("btn:rebuy", "补码", P.dim, compact ? 44 : 56, !canRebuy);
+      } else {
+        btn("btn:sit", "坐下", P.gold, compact ? 48 : 64);
+      }
+      btn("btn:copy", compact ? "邀请" : "复制邀请链接", P.dim, compact ? 44 : 120);
     }
-    btn("btn:copy", compact ? "邀请" : "复制邀请链接", P.dim, compact ? 44 : 120);
     p.rect(0, top - 1, width, 1, rgb(226, 192, 120, 0.15), 3);
 
     p.felt(table.x, table.y, table.w, table.h, this.assets!.feltTexture(pixelWidth, pixelHeight, portrait, pixelHeight), 1);
@@ -404,7 +451,7 @@ export class PokerScene implements EngineSystem {
     }
     if (!(snap?.lastResult && !snap.street)) this.drawSeats(p, snap, table, portrait, sitting);
     this.drawCenter(p, snap, table);
-    const dockY = compact ? Math.min(top + feltH, table.y + table.h + 8) : top + feltH;
+    const dockY = compactDock ? table.y + table.h + 8 : top + feltH;
     this.drawDock(p, snap, width, height, dock, dockY);
   }
 
@@ -417,8 +464,11 @@ export class PokerScene implements EngineSystem {
       const vis = sitting ? (seat - meSeat + SEATS) % SEATS : seat;
       const pos = ring[vis] || { x: 50, y: 50 };
       const cx = table.x + (pos.x / 100) * table.w;
-      const cy = table.y + (pos.y / 100) * table.h;
+      let cy = table.y + (pos.y / 100) * table.h;
+      const compressed = !portrait && table.h < 260;
+      if (compressed) cy = Math.min(table.y + table.h - 38, Math.max(table.y + 38, cy));
       const s = snap.seats[seat];
+      if (!s && table.w < 260) continue;
       const acting = Boolean(s?.acting);
       const pulse = acting ? 0.55 + 0.45 * Math.abs(Math.sin(this.pulse * 4)) : 1;
       const alpha = s?.folded ? 0.45 : s?.sitting && s.chips === 0 ? 0.72 : 1;
@@ -444,17 +494,29 @@ export class PokerScene implements EngineSystem {
           fill: rgb(P.muted[0] * 255, P.muted[1] * 255, P.muted[2] * 255, alpha),
           layer: 11,
         });
-        let badgeX = cx - 36;
+        const badges = [
+          s.isButton ? ["D", rgb(40, 40, 40)] : null,
+          s.isSb ? ["SB", rgb(40, 90, 160)] : null,
+          s.isBb ? ["BB", rgb(160, 90, 40)] : null,
+          s.isStraddle ? ["STR", rgb(90, 40, 120)] : null,
+        ].filter(Boolean) as Array<[string, Color]>;
+        let badgeX = compressed ? cx - 34 - (badges.length - 1) * 18 : cx - ((badges.length - 1) * 18) / 2;
+        const badgeY = compressed ? cy - 10 : cy - 40;
         const badge = (t: string, c: Color) => {
-          p.disc(badgeX, cy - 28, 9, c, 12);
-          p.labelCenter(t, badgeX, cy - 28, { font: "9px sans-serif", fill: P.ink, layer: 13 });
-          badgeX += 16;
+          p.disc(badgeX, badgeY, 9, c, 12);
+          p.labelCenter(t, badgeX, badgeY, { font: "9px sans-serif", fill: P.ink, layer: 13 });
+          badgeX += 18;
         };
-        if (s.isButton) badge("D", rgb(40, 40, 40));
-        if (s.isSb) badge("SB", rgb(40, 90, 160));
-        if (s.isBb) badge("BB", rgb(160, 90, 40));
-        if (s.isStraddle) badge("STR", rgb(90, 40, 120));
-        if (s.bet) this.drawChips(p, cx, cy + (vis === 0 ? -52 : 50), s.bet, 14);
+        badges.forEach(([text, color]) => badge(text, color));
+        if (s.bet && compressed) {
+          p.labelCenter(`下注 ${fmtChips(s.bet)}`, cx, cy < table.y + table.h / 2 ? cy + 34 : cy - 34, {
+            font: "11px sans-serif",
+            fill: P.gold,
+            layer: 14,
+          });
+        } else if (s.bet) {
+          this.drawChips(p, cx, cy + (vis === 0 ? -52 : 50), s.bet, 14);
+        }
         if (s.holeCards && s.playerId !== snap.me?.id) {
           s.holeCards.forEach((c: string, i: number) => {
             p.card(c, cx - 16 + i * 22, cy - 48, 28, 40, 12);
@@ -477,27 +539,37 @@ export class PokerScene implements EngineSystem {
     }
     const cx = table.x + table.w / 2;
     const cy = table.y + table.h / 2;
+    const narrow = table.w < 260;
+    const compressed = table.h < 260;
     const pot = snap.pot ?? 0;
-    this.drawChips(p, cx, cy - 42, pot, 10);
-    p.labelCenter(pot ? "底池" : "底池 0", cx, cy - 68, { fill: P.gold, font: "16px 'PingFang SC', sans-serif", layer: 10 });
+    const street = snap.street ? String(snap.street).toUpperCase() : snap.status === "waiting" ? "等待玩家" : "";
+    const board = this.session.shownBoard;
+    const bw = compressed || table.w < 300 ? 38 : 52;
+    const bh = compressed || table.w < 300 ? 54 : 74;
+    const gap = compressed || table.w < 300 ? 4 : 8;
+    const boardSpan = board.length ? board.length * bw + (board.length - 1) * gap : 0;
+    const potX = compressed ? Math.max(table.x + 60, cx - boardSpan / 2 - 60) : cx;
+    const potY = compressed ? cy + 2 : cy - 42;
+    this.drawChips(p, potX, potY, pot, 10);
+    p.labelCenter(`${pot ? "底池" : "底池 0"}${street ? ` · ${street}` : ""}`, potX, cy - (compressed ? 28 : 68), {
+      fill: P.gold,
+      font: "16px 'PingFang SC', sans-serif",
+      layer: 10,
+    });
     if (this.potFlight) {
       const t = Math.min(1, (performance.now() - this.potFlight.at) / 360);
       if (t < 1) {
         const eased = tweenValue(0, 1, t, easeOutBack);
-        p.chip(1, this.potFlight.x + (cx - this.potFlight.x) * eased, this.potFlight.y + (cy - 42 - this.potFlight.y) * eased, 7, 11);
+        p.chip(1, this.potFlight.x + (potX - this.potFlight.x) * eased, this.potFlight.y + (potY - this.potFlight.y) * eased, 7, 11);
       } else {
         this.potFlight = null;
       }
     }
-    const board = this.session.shownBoard;
-    const bw = table.w < 300 ? 38 : 52;
-    const bh = table.w < 300 ? 54 : 74;
-    const gap = table.w < 300 ? 4 : 8;
     const start = cx - ((board.length - 1) * (bw + gap)) / 2;
     board.forEach((item, i) => {
       const t = Math.min(1, (Date.now() - item.at) / 220);
       const sc = tweenValue(0.7, 1, t, easeOutBack);
-      p.card(item.card, start + i * (bw + gap), cy + 8, bw, bh, 10, sc);
+      p.card(item.card, start + i * (bw + gap), cy + (compressed ? 2 : 8), bw, bh, 10, sc);
     });
     const flags: string[] = [];
     if (snap.remainingMs != null) flags.push(`剩余 ${fmtMs(snap.remainingMs)}`);
@@ -506,26 +578,27 @@ export class PokerScene implements EngineSystem {
     if (snap.config.squidEnabled) flags.push("鱿鱼");
     if (snap.config.bounty27Enabled) flags.push("27杂色");
     flags.push(snap.config.unlimitedBuyin ? "无限买入" : `最多${snap.config.maxBuyins}次买入`);
-    const street = snap.street ? String(snap.street).toUpperCase() : snap.status === "waiting" ? "等待玩家" : "";
-    if (street) p.labelCenter(street, cx, cy - 18, { fill: rgb(205, 231, 216, 0.9), font: "12px 'PingFang SC', sans-serif", layer: 10 });
-    p.labelCenter(flags.join(" · "), cx, cy + 70, {
-      fill: rgb(200, 200, 200, 0.55),
-      font: "12px 'PingFang SC', sans-serif",
-      layer: 10,
-      maxWidth: table.w * 0.7,
-    });
+    if (!narrow && !compressed) {
+      p.labelCenter(flags.join(" · "), cx, cy + 52, {
+        fill: rgb(200, 200, 200, 0.55),
+        font: "12px 'PingFang SC', sans-serif",
+        layer: 10,
+        maxWidth: table.w * 0.7,
+      });
+    }
+    const timerY = cy + (narrow ? 62 : 70);
     const voteLeft = voteMsLeft(snap, this.session.recvAt);
     const actionLeft = actionMsLeft(snap, this.session.recvAt);
-    if (voteLeft != null) {
-      p.labelCenter(`发牌协商 ${Math.ceil(voteLeft / 1000)}s`, cx, cy + 94, { fill: P.gold, font: "13px sans-serif", layer: 10 });
-    } else if (actionLeft != null) {
-      p.labelCenter(`行动倒计时 ${Math.max(0, Math.ceil(actionLeft / 1000))}s`, cx, cy + 94, {
+    if (voteLeft != null && !compressed) {
+      p.labelCenter(`发牌协商 ${Math.ceil(voteLeft / 1000)}s`, cx, timerY, { fill: P.gold, font: "13px sans-serif", layer: 10 });
+    } else if (actionLeft != null && !compressed) {
+      p.labelCenter(`行动倒计时 ${Math.max(0, Math.ceil(actionLeft / 1000))}s`, cx, timerY, {
         fill: actionLeft <= 5000 ? P.danger : P.gold,
         font: "13px sans-serif",
         layer: 10,
       });
-    } else if (snap.nextHandAt && !snap.street) {
-      p.labelCenter(`下一手 ${Math.max(0, Math.ceil((snap.nextHandAt - Date.now()) / 1000))}s`, cx, cy + 94, { fill: P.gold, font: "13px sans-serif", layer: 10 });
+    } else if (snap.nextHandAt && !snap.street && !compressed) {
+      p.labelCenter(`下一手 ${Math.max(0, Math.ceil((snap.nextHandAt - Date.now()) / 1000))}s`, cx, timerY, { fill: P.gold, font: "13px sans-serif", layer: 10 });
     }
   }
 
@@ -536,7 +609,8 @@ export class PokerScene implements EngineSystem {
     const w = Math.min(portrait ? 340 : 520, viewport.width - 32);
     const x = (viewport.width - w) / 2;
     const multiRun = (lr.runs?.length ?? 0) > 1;
-    const panelH = Math.min(multiRun ? 380 : 260, table.h * (multiRun ? 0.88 : 0.60));
+    const short = viewport.height < 500;
+    const panelH = Math.min(multiRun ? 460 : 300, viewport.height - (short ? 48 : portrait ? 96 : 80));
     const y = Math.max(8, (this.engine.viewport.height - panelH) / 2);
     p.roundRect(x, y, w, panelH, rgb(8, 16, 24, 0.94), 40, 18);
     const kicker = (lr.timeoutIds || []).length
@@ -546,8 +620,8 @@ export class PokerScene implements EngineSystem {
         : "本手结算";
     p.labelCenter(kicker, x + w / 2, y + 22, { fill: P.gold, layer: 42, font: "16px 'PingFang SC', sans-serif" });
     const runs = lr.runs?.length ? lr.runs : [{ board: lr.board || [], winners: lr.winners || [] }];
-    const boardW = portrait ? 42 : 60;
-    const boardH = portrait ? 60 : 84;
+    const boardW = short ? 36 : portrait ? 42 : 60;
+    const boardH = short ? 50 : portrait ? 60 : 84;
     let yy = y + 48;
     runs.forEach((run: any, i: number) => {
       if (runs.length > 1) {
@@ -555,10 +629,10 @@ export class PokerScene implements EngineSystem {
         yy += 16;
       }
       const cards: string[] = run.board || [];
-      const gap = portrait ? 6 : 8;
+      const gap = short ? 4 : portrait ? 6 : 8;
       const start = x + w / 2 - ((cards.length - 1) * (boardW + gap)) / 2;
       cards.forEach((c, ci) => p.card(c, start + ci * (boardW + gap), yy + boardH / 2 + 2, boardW, boardH, 42));
-      yy += boardH + 20;
+      yy += boardH + (short ? 12 : 20);
     });
     const winIds = new Set(lr.winners.filter((w: any) => w.amount > 0).map((w: any) => w.id));
     const ids = new Set([
@@ -578,31 +652,34 @@ export class PokerScene implements EngineSystem {
         font: "13px 'PingFang SC', sans-serif",
       });
       const cards: string[] = lr.shown?.[id] || [];
-      cards.forEach((c, i) => p.card(c, x + w - 76 + i * 32, yy + 20, 28, 40, 42));
-      yy += 36;
+      const cardW = short ? 24 : 28;
+      const cardH = short ? 34 : 40;
+      cards.forEach((c, i) => p.card(c, x + w - 76 + i * (cardW + 4), yy + cardH / 2, cardW, cardH, 42));
+      yy += short ? 38 : 44;
     }
     const winLine =
       lr.winners
         .filter((w: any) => w.amount > 0)
         .map((w: any) => `${nameOf(snap, w.id)} 赢得 ${fmtChips(w.amount)}${w.handName ? " · " + w.handName : ""}`)
         .join("　") || "本手结束";
-    p.labelCenter(winLine, x + w / 2, yy + 8, { fill: P.gold, layer: 42, maxWidth: w - 24 });
+    p.labelCenter(winLine, x + w / 2, yy + (portrait ? 24 : 16), { fill: P.gold, layer: 42, maxWidth: w - 24 });
   }
 
   private drawDock(p: Painter, snap: any, width: number, height: number, dock: number, y: number) {
     this.slider = null;
     p.rect(0, y, width, dock, rgb(5, 12, 18, 0.9), 20);
     p.rect(0, y, width, 1, rgb(226, 192, 120, 0.10), 21);
-    const holes = this.session.shownHoles;
-    const compact = isPortraitTable(width, height);
+    const holes = snap?.lastResult && !snap.street ? [] : this.session.shownHoles;
+    const compact = isPortraitTable(width, height) || height < 500;
+    const short = compact && height < 650;
     const stacked = !compact && width < 1100;
-    const holeW = compact ? 52 : 62;
+    const holeW = short ? 44 : compact ? 52 : 62;
     const holeGap = 8;
     const holeStart = (width - holes.length * holeW - Math.max(0, holes.length - 1) * holeGap) / 2 + holeW / 2;
     holes.forEach((item, i) => {
       const t = Math.min(1, (Date.now() - item.at) / 220);
       const sc = tweenValue(0.65, 1, t, easeOutBack);
-      p.card(item.card, holeStart + i * (holeW + holeGap), compact ? y + 31 : stacked ? y + 42 : y + dock / 2, holeW, compact ? 74 : 88, 22, sc);
+      p.card(item.card, holeStart + i * (holeW + holeGap), short ? y + 27 : compact ? y + 31 : stacked ? y + 42 : y + dock / 2, holeW, short ? 62 : compact ? 74 : 88, 22, sc);
     });
     if (!snap) return;
     const vote = snap.runoutVote;
@@ -610,19 +687,23 @@ export class PokerScene implements EngineSystem {
       vote && snap.me && snap.seats.some((seat: any) => seat && seat.playerId === snap.me.id && seat.inHand && !seat.folded);
     let ax = width - 16;
     let compactRow = 0;
+    const gap = compact ? 6 : 8;
+    const actionY = short ? 62 : 76;
+    const actionH = short ? 32 : 40;
+    const rowStep = short ? 36 : 42;
     const add = (id: string, label: string, fill: Color, w: number, disabled = false) => {
-      if (compact && ax - (w + 8) < 8) {
+      if (compact && ax - (w + gap) < 8) {
         compactRow += 1;
         ax = width - 16;
       }
-      ax -= w + 8;
-      p.button(id, ax, y + (compact ? 76 + compactRow * 42 : stacked ? 100 : 16), w, 40, label, { fill, ink: fill === P.gold || fill === P.bet ? rgb(26, 18, 8) : P.ink, layer: 24, disabled });
+      ax -= w + gap;
+      p.button(id, ax, y + (compact ? actionY + compactRow * rowStep : stacked ? 100 : 16), w, compact ? actionH : 40, label, { fill, ink: fill === P.gold || fill === P.bet ? rgb(26, 18, 8) : P.ink, layer: 24, disabled });
     };
     if (vote && meLive) {
       const picked = vote.choices?.[snap.me.id];
       add("runout:twice", "发两次", P.bet, 88, Boolean(picked));
       add("runout:once", "发一次", P.dim, 88, Boolean(picked));
-      p.label("All-in 发几次公共牌？", compact ? 12 : 140, y + (compact ? 92 : 26), { fill: P.muted, layer: 24, maxWidth: compact ? width - 24 : undefined });
+      if (!compact) p.label("All-in 发几次公共牌？", 140, y + 26, { fill: P.muted, layer: 24 });
       if (picked) {
         /* buttons still shown; session ignores extra clicks via lock */
       }
@@ -646,34 +727,39 @@ export class PokerScene implements EngineSystem {
         const statusW = Math.min(width - 24, 230);
         p.roundRect((width - statusW) / 2, y + 81, statusW, 22, rgb(61, 107, 78, 0.85), 23, 11);
         p.roundRect((width - statusW) / 2 + 1, y + 82, statusW - 2, 20, rgb(26, 44, 34, 0.96), 23, 10);
-        p.labelCenter(`${nameOf(snap, snap.me.id)} · ${fmtChips(snap.me.chips)} · buy-in ${snap.me.buyinCount ?? 0}`, width / 2, y + 92, {
+        p.labelCenter(`${waitText} · 筹码 ${fmtChips(snap.me.chips)}`, width / 2, y + 92, {
           fill: P.muted,
           layer: 24,
           font: "11px 'PingFang SC', sans-serif",
           maxWidth: width - 24,
         });
-      } else {
+      } else if (!compact) {
         p.label(waitText, 140, y + 28, { fill: P.muted, layer: 24 });
       }
       return;
     }
-    if (legal.canAllIn) add("act:allin", "全下", P.allin, 72);
+    if (legal.canAllIn) add("act:allin", "全下", P.allin, compact ? 64 : 72);
     if (legal.canBet || legal.canRaise) {
       const min = legal.canBet ? legal.minBet : legal.minRaiseTo;
       const max = legal.maxRaiseTo;
       const label = legal.canRaise ? `加注 ${fmtChips(this.session.raiseTo)}` : `下注 ${fmtChips(this.session.raiseTo)}`;
-      add(legal.canRaise ? "act:raise" : "act:bet", label, P.bet, 120);
-      const slW = 120;
-      ax -= slW + 8;
+      add(legal.canRaise ? "act:raise" : "act:bet", label, P.bet, compact ? 104 : 120);
+      const slW = compact ? 92 : 120;
+      ax -= slW + gap;
       const slX = ax;
-      const slY = y + (compact ? 96 : stacked ? 112 : 28);
+      const slY = y + (compact ? actionY + actionH / 2 : stacked ? 112 : 28);
       this.slider = new UISlider("slider", { x: slX, y: slY - 12, width: slW, height: 32 }, min, max, this.session.raiseTo);
-      p.slider(this.slider, 24);
+      p.slider(this.slider, 24, "下注额");
       p.hit("slider", slX, slY - 12, slW, 32, 26);
     }
-    if (legal.canCall) add("act:call", `跟注 ${fmtChips(legal.callAmount)}`, P.call, 100);
-    if (legal.canCheck) add("act:check", "过牌", P.check, 72);
-    if (legal.canFold) add("act:fold", "弃牌", P.fold, 72);
+    if (compact && width < 430 && (legal.canBet || legal.canRaise)) {
+      const commonWidth = (legal.canCall ? 90 + gap : 0) + (legal.canCheck ? 64 + gap : 0) + (legal.canFold ? 64 + gap : 0);
+      compactRow += 1;
+      ax = (width + commonWidth) / 2;
+    }
+    if (legal.canCall) add("act:call", `跟注 ${fmtChips(legal.callAmount)}`, P.call, compact ? 90 : 100);
+    if (legal.canCheck) add("act:check", "过牌", P.check, compact ? 64 : 72);
+    if (legal.canFold) add("act:fold", "弃牌", P.fold, compact ? 64 : 72);
   }
 
   private drawChips(p: Painter, cx: number, cy: number, amount: number, layer: number) {
@@ -693,10 +779,14 @@ export class PokerScene implements EngineSystem {
 
   private drawSettle(p: Painter, width: number, height: number) {
     const snap = this.session.snapshot;
+    const rows = (snap?.settlement?.players ?? [])
+      .slice()
+      .sort((a: any, b: any) => b.net - a.net);
     const cardW = Math.min(520, width - 32);
     const x = (width - cardW) / 2;
-    let y = height * 0.1;
-    const cardH = height * 0.7;
+    let y = Math.max(24, height * 0.06);
+    const cardH = height - y - 24;
+    const buttonY = y + cardH - 56;
     p.roundRect(x + 4, y + 8, cardW, cardH, rgb(0, 0, 0, 0.32), 1, 18);
     p.roundRect(x, y, cardW, cardH, rgb(226, 192, 120, 0.28), 2, 18);
     p.roundRect(x + 1, y + 1, cardW - 2, cardH - 2, P.panel, 2, 17);
@@ -708,21 +798,22 @@ export class PokerScene implements EngineSystem {
     p.label("筹码", x + cardW * 0.62, y, { fill: P.muted, layer: 4 });
     p.label("净胜负", x + cardW * 0.8, y, { fill: P.muted, layer: 4 });
     y += 28;
-    const rows = (snap?.settlement?.players ?? [])
-      .slice()
-      .sort((a: any, b: any) => b.net - a.net);
+    const rowGap = Math.min(28, Math.max(16, (buttonY - y - 8) / Math.max(1, rows.length)));
+    const rowFont = cardW < 400 || rowGap < 22 ? "11px 'PingFang SC', sans-serif" : "14px 'PingFang SC', sans-serif";
     for (const row of rows) {
-      p.label(row.nickname, x + 24, y, { layer: 4 });
-      p.label(fmtChips(row.buyinChips), x + cardW * 0.42, y, { layer: 4 });
-      p.label(fmtChips(row.stack), x + cardW * 0.62, y, { layer: 4 });
+      p.label(row.nickname, x + 24, y, { layer: 4, font: rowFont, maxWidth: cardW * 0.34 });
+      p.label(fmtChips(row.buyinChips), x + cardW * 0.42, y, { layer: 4, font: rowFont });
+      p.label(fmtChips(row.stack), x + cardW * 0.62, y, { layer: 4, font: rowFont });
       p.label(`${row.net >= 0 ? "+" : ""}${fmtChips(row.net)}`, x + cardW * 0.8, y, {
         fill: row.net >= 0 ? P.ok : P.danger,
         layer: 4,
+        font: rowFont,
       });
-      y += 28;
+      y += rowGap;
     }
-    p.button("btn:copy", x + 24, height * 0.72, 140, 40, "复制邀请链接", { fill: P.dim, ink: P.ink });
-    p.button("btn:leave", x + cardW - 164, height * 0.72, 140, 40, "退出游戏桌");
+    const buttonW = (cardW - 56) / 2;
+    p.button("btn:copy", x + 24, buttonY, buttonW, 40, "复制邀请链接", { fill: P.dim, ink: P.ink });
+    p.button("btn:leave", x + 32 + buttonW, buttonY, buttonW, 40, "退出游戏桌");
   }
 
   private drawBuyin(p: Painter, width: number, height: number) {
@@ -751,13 +842,15 @@ export class PokerScene implements EngineSystem {
     p.button("buyin:cancel", x + 24, y + h - 56, (w - 56) / 2, 40, "取消", { fill: P.dim, ink: P.ink, layer: 53 });
     p.button("buyin:ok", x + 32 + (w - 56) / 2, y + h - 56, (w - 56) / 2, 40, snap?.me?.sitting ? "补码" : "坐下", {
       layer: 53,
+      disabled: remaining === "0",
     });
   }
 
   private drawToast(p: Painter, width: number, height: number) {
     const msg = this.session.toast;
     const w = Math.min(360, width - 40);
-    p.rect((width - w) / 2, height - 64, w, 36, rgb(20, 20, 20, 0.9), 60);
-    p.labelCenter(msg, width / 2, height - 46, { layer: 61, font: "13px 'PingFang SC', sans-serif" });
+    const y = Math.min(height - 64, window.scrollY + window.innerHeight - 64);
+    p.rect((width - w) / 2, y, w, 36, rgb(20, 20, 20, 0.9), 60);
+    p.labelCenter(msg, width / 2, y + 18, { layer: 61, font: "13px 'PingFang SC', sans-serif" });
   }
 }

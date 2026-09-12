@@ -38,13 +38,13 @@ Easy Poker：Cloudflare Workers 上的 8 人长牌德州现金桌。权威在 AP
 
 ### 已经做到
 
-- 扑克分支基线：`3394f75 feat: draw the whole table in 2d-engine`（本次资源迁移仍在工作树）
-- 引擎分支 HEAD：`b00c137 feat: add retained UI primitives and image upload usage`
+- 扑克工作分支：`feat/2d-engine-frontend`
+- 引擎工作分支：`feat/scene-ui`
 - 页面几乎只有一块全屏 `#game-canvas`。大厅/牌桌/结算都是 `PokerScene` 每帧用 `Renderer2D` 画 textured quad。
 - 旧 HTML 渲染器已删：`client/src/overlay.ts`、`table-surface.ts`、`table-engine.ts`、独立 `public/js/app.js`。
-- 音效：`PokerSfx` → `AudioManager.load('/sounds/*.m4a')`。文件在 `public/sounds/`。洗牌是 `shuffle-1` … `shuffle-5`，没有 `shuffle.m4a`；可预生成的 UI/牌桌美术在 `public/assets/*.png`，由 `npm run art` 从 SVG 源生成。
+- 音效：`PokerSfx` 先下载原始音频，只在首次 pointer/keyboard 用户手势中创建 `AudioManager` 并解码，避免浏览器 autoplay warning。文件在 `public/sounds/`。洗牌是 `shuffle-1` … `shuffle-5`，没有 `shuffle.m4a`；可预生成的 UI/牌桌美术在 `public/assets/*.png`，由 `npm run art` 从 SVG 源生成。
 - 网络：`HttpClient` + `WebSocketTransport`（`client/src/net.ts`）。
-- 本地 `npm test`：扑克 40、引擎 80（引擎改过后要再跑引擎测试）。
+- 本地 `npm test`：扑克 40、引擎 84（引擎改过后要再跑引擎测试与 build）。
 
 ### 故意留下的 DOM
 
@@ -55,7 +55,7 @@ Easy Poker：Cloudflare Workers 上的 8 人长牌德州现金桌。权威在 AP
 - `#ime-pass` 密码
 - `#ime-buyin` 买入次数
 
-按钮、座位、牌、标签 **不是** HTML。不要为了「更好看」把座位/行动栏加回 DOM。
+按钮、座位、牌、标签的视觉仍由引擎绘制。`UIBridge.syncControls()` 会为按钮和滑条同步透明的原生语义控件，供键盘和辅助技术使用；不要把视觉座位/行动栏加回 DOM。
 
 无 WebGPU 时 `body.engine-fallback`，`#ime-root` 显示「需要 WebGPU 才能运行 Easy Poker」。没有 Canvas2D 整桌回退。
 
@@ -70,6 +70,7 @@ Easy Poker：Cloudflare Workers 上的 8 人长牌德州现金桌。权威在 AP
 | `Tween` / `TweenPlayer` / `tweenValue` / `easeOut*` | `src/animation/tween.ts` | 发牌缩放等 |
 | `hitTest` / `rectContains` / `HitRect` | `src/ui/hit.ts` | 点按钮 |
 | `canvasCssSize` | `src/core/engine.ts` | 隐藏 canvas 不要用 drawing buffer 尺寸（避免 1280×720 swapchain 盖住页面） |
+| `UIBridge.describe` / `announce` / `syncControls` | `src/ui-bridge/bridge.ts` | Canvas 场景描述、live status、按视觉顺序同步键盘可访问控件 |
 
 `GPUTextureUsage` 不能写在模块顶层：Node 单测环境没有该全局，要放进函数里。
 
@@ -148,23 +149,23 @@ Node 测试是 **strip-types only**：class 构造器不要写 `constructor(read
 - 为「引擎化」再写一套脱离 `@xrdavies/2d-engine` 的 WebGL/Canvas 渲染器。
 - 恢复 `overlay.ts` 那种座位/牌 DOM。
 
-## 已知缺口（优先优化这些）
+## 已知缺口
 
 按手感，不是按文件名：
 
-1. **点击仍需真机复核**
-   引擎按钮靠 canvas `pointerdown` + `hitTest`，按钮命中有 3px 容错，滑条使用 pointer capture，canvas 关闭浏览器 touch gesture。仍建议在真实触屏设备复核创建、标签页和滑条。
+1. **物理触屏抽查（非阻塞）**
+   MCP 双 profile 已覆盖 `320×568` 到 `1440×900`、键盘操作、滑条和完整双玩家流程。发布前若有真机，可再抽查触感与系统键盘避让；当前没有已知浏览器布局缺陷。
 
 2. **动画仍可增强**
    已有发牌缩放、筹码飞向底池、行动按钮按压和座位 acting 光圈；摊牌面板目前直接出现，后续若需要入场动画应继续使用引擎 `Tween` / `TweenPlayer`，不要加回 CSS `@keyframes`。
 
-3. **视觉仍需浏览器复核**
-   当前已补齐花色颜色、圆角/描边控件、预生成背景/绒面/牌图集/筹码图集、桌面/手机比例、摊牌遮罩与牌背纹理；中文 `Text2D` 清晰度和移动端文案仍可能需要真机微调。旧 DOM UI 的 `public/css/app.css` 已删除；`public/css/engine.css` 只负责 Canvas 外壳和输入法桥接所需的原生输入框。
+3. **浏览器 QA 已完成**
+   结果与截图名见 `docs/qa-browser-desktop.md`、`docs/qa-browser-mobile.md`。旧 DOM UI 的 `public/css/app.css` 已删除；`public/css/engine.css` 只负责 Canvas 外壳、短大厅滚动和输入法桥接所需的原生输入框。
 
-5. **无 WebGPU**  
+4. **无 WebGPU**
    现在只有一行字。要不要 Canvas2D 降级由产品定；不要 silently 画一套 DOM 牌桌。
 
-6. **引擎 UI 基础层已补齐**
+5. **引擎 UI 基础层已补齐**
    `UIRoot` / `UIContainer` / `UILabel` / `UIImage` / `UIButton` / `UIInput` / `UISlider` 位于 `engine/src/ui/components.ts`，通过 `UIRenderer` 适配器交给 Renderer2D/Text2D；按钮支持 disabled、pressed、pointer cancel 和 click，输入框与滑动条支持值同步及范围/步进约束。复杂布局/主题仍由产品层决定。
 
 ## 测试约定

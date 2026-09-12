@@ -6,6 +6,7 @@ import {
   type TextQuad,
   type TexturedQuad,
   type UIInput,
+  type UIBridgeControl,
   type UISlider,
 } from "@xrdavies/2d-engine";
 import { CARD_H, CARD_W, type GpuAssets } from "./assets.ts";
@@ -77,6 +78,7 @@ class TextCache {
 export class Painter {
   items: TexturedQuad[] = [];
   hits: HitRect[] = [];
+  controls: UIBridgeControl[] = [];
   pressedId = "";
   private readonly text: TextCache;
 
@@ -90,6 +92,7 @@ export class Painter {
   reset() {
     this.items = [];
     this.hits = [];
+    this.controls = [];
   }
 
   dispose() {
@@ -152,11 +155,22 @@ export class Painter {
     this.roundRect(node.rect.x, node.rect.y, node.rect.width, node.rect.height, P.field, layer, 8);
   }
 
-  slider(node: UISlider, layer = node.layer) {
+  slider(node: UISlider, layer = node.layer, label = node.id) {
     const { x, y, width, height } = node.rect;
     this.rect(x, y + (height - 8) / 2, width, 8, P.dim, layer);
     const t = (node.value - node.min) / Math.max(1, node.max - node.min);
     this.disc(x + t * width, y + height / 2, Math.min(10, height / 2), P.gold, layer + 1);
+    this.controls.push({
+      kind: "slider",
+      id: node.id,
+      label,
+      rect: node.rect,
+      min: node.min,
+      max: node.max,
+      value: node.value,
+      step: node.step,
+      disabled: node.disabled,
+    });
   }
 
   label(
@@ -217,7 +231,7 @@ export class Painter {
     w: number,
     h: number,
     title: string,
-    opts: { fill?: Color; ink?: Color; layer?: number; disabled?: boolean } = {},
+    opts: { fill?: Color; ink?: Color; layer?: number; disabled?: boolean; selected?: boolean; accessibilityLabel?: string } = {},
   ) {
     const fill = opts.fill ?? P.gold;
     const ink = opts.ink ?? rgb(26, 18, 8);
@@ -233,10 +247,28 @@ export class Painter {
     }
     this.labelCenter(title, x + w / 2, y + h / 2, { fill: opts.disabled ? P.muted : ink, layer: layer + 1, font: "14px 'PingFang SC', sans-serif" });
     this.hits.push({ id, x: x - 3, y: y - 3, width: w + 6, height: h + 6, layer, disabled: opts.disabled });
+    this.controls.push({ kind: "button", id, label: opts.accessibilityLabel ?? title, rect: { x, y, width: w, height: h }, disabled: opts.disabled, pressed: opts.selected });
   }
 
-  hit(id: string, x: number, y: number, w: number, h: number, layer = 30) {
+  hit(
+    id: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    layer = 30,
+    accessibility?: { label: string; pressed?: boolean },
+  ) {
     this.hits.push({ id, x, y, width: w, height: h, layer });
+    if (accessibility) {
+      this.controls.push({
+        kind: "button",
+        id,
+        label: accessibility.label,
+        rect: { x, y, width: w, height: h },
+        pressed: accessibility.pressed,
+      });
+    }
   }
 }
 

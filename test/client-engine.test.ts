@@ -8,6 +8,7 @@ import {
   actionMsLeft,
   fmtChips,
   isPortraitTable,
+  nameOf,
 } from "../client/src/session.ts";
 
 const url = (p: string) => new URL(p, import.meta.url);
@@ -98,6 +99,7 @@ describe("2d-engine backed client", () => {
 
   it("computes portrait layout and action timeout from shipped session helpers", () => {
     assert.equal(isPortraitTable(390, 844), true);
+    assert.equal(isPortraitTable(800, 600), false);
     assert.equal(isPortraitTable(1280, 720), false);
     assert.equal(fmtChips(1200), "1,200");
     const snap = {
@@ -107,6 +109,7 @@ describe("2d-engine backed client", () => {
     };
     assert.equal(actionMsLeft(snap, Date.now()), 0);
     assert.equal(actionMsLeft({ ...snap, actionDeadline: Date.now() + 50_000, now: Date.now() - 100 }, Date.now())! > 0, true);
+    assert.equal(nameOf({ seats: [], spectators: [{ id: "a", nickname: "Alice" }] }, "a"), "Alice");
   });
 
   it("keeps player-facing chrome: invite, 8 seats, showdown, SFX", () => {
@@ -128,6 +131,7 @@ describe("2d-engine backed client", () => {
     assert.match(session, /play\("win"\)/);
     assert.match(session, /play\("lose"\)/);
     assert.match(session, /actingPlayerId === snap\.me\?\.id/);
+    assert.match(session, /if \(snap\.runoutVote\) this\.actionLock = false/);
     assert.doesNotMatch(read("../client/index.html"), /复制号码\+密码/);
   });
 });

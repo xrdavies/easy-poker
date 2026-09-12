@@ -9,13 +9,13 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♠</text></svg>" />
     <script type="module" crossorigin src="/js/game.js"></script>
   </head>
-  <body>
+  <body class="lobby-screen">
     <canvas id="game-canvas" width="1" height="1" tabindex="0"></canvas>
     <div id="ime-root">
-      <input id="ime-nick" class="hidden" maxlength="16" placeholder="给自己取个名字" autocomplete="nickname" />
-      <input id="ime-table" class="hidden" maxlength="8" placeholder="六位号码" autocomplete="off" />
-      <input id="ime-pass" class="hidden" maxlength="8" placeholder="四位密码" autocomplete="off" />
-      <input id="ime-buyin" class="hidden" type="number" min="1" max="99" value="1" />
+      <input id="ime-nick" class="hidden" maxlength="16" placeholder="给自己取个名字" aria-label="昵称" autocomplete="nickname" />
+      <input id="ime-table" class="hidden" maxlength="8" placeholder="六位号码" aria-label="游戏桌号码" autocomplete="off" />
+      <input id="ime-pass" class="hidden" maxlength="8" placeholder="四位密码" aria-label="密码" autocomplete="off" />
+      <input id="ime-buyin" class="hidden" type="number" min="1" max="99" value="1" aria-label="买入次数" />
     </div>
   </body>
 </html>

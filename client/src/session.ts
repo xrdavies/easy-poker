@@ -37,8 +37,8 @@ export type ScreenId = "lobby" | "table" | "settle";
 export type LobbyTab = "create" | "join";
 
 export function isPortraitTable(width = 0, height = 0) {
-  if (width > 0 && height > 0) return height >= width || width <= 820;
-  return window.matchMedia("(orientation: portrait), (max-width: 820px)").matches;
+  if (width > 0 && height > 0) return height >= width;
+  return window.matchMedia("(orientation: portrait)").matches;
 }
 
 export function fmtChips(n: number) {
@@ -66,8 +66,9 @@ export function voteMsLeft(snap: any, recvAt: number) {
 }
 
 export function nameOf(snap: any, id: string) {
-  const s = snap.seats.find((x: any) => x?.playerId === id);
-  return s?.nickname ?? id.slice(0, 4);
+  const player = snap.seats.find((x: any) => x?.playerId === id)
+    ?? snap.spectators?.find((x: any) => x?.id === id);
+  return player?.nickname ?? id.slice(0, 4);
 }
 
 export function renderShowdown(snap: any) {
@@ -198,6 +199,7 @@ export class PokerSession {
     if (!snap) return;
     this.snapshot = snap;
     this.recvAt = Date.now();
+    if (snap.runoutVote) this.actionLock = false;
     this.tableNumber = snap.tableNumber;
     this.password = snap.password;
     this.saveTableSession();
@@ -333,7 +335,6 @@ export class PokerSession {
 
   async createTable() {
     if (!this.needNick()) return;
-    void this.sfx.unlock();
     try {
     const data = await this.net.api("/api/tables", {
       playerId: this.playerId,
@@ -354,7 +355,10 @@ export class PokerSession {
 
   async join(tableNumber: string, password: string) {
     if (!this.needNick()) return;
-    void this.sfx.unlock();
+    if (!/^[A-Z0-9]{6}$/.test(tableNumber) || !/^\d{4}$/.test(password)) {
+      this.toastMsg("请输入 6 位桌号和 4 位密码");
+      return;
+    }
     try {
     const data = await this.net.api("/api/join", {
       type: "join",

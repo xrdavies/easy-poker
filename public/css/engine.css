@@ -36,3 +36,16 @@ html, body {
 }
 #ime-root input.hidden { display: none !important; }
 .hidden { display: none !important; }
+
+@media (max-height: 699px) {
+  body.lobby-screen {
+    height: 700px;
+    overflow-y: auto;
+  }
+  body.lobby-screen #game-canvas,
+  body.lobby-screen #ime-root {
+    position: absolute;
+    bottom: auto;
+    height: 700px;
+  }
+}
