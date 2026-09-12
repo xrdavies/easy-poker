@@ -38,10 +38,13 @@ html, body {
 .hidden { display: none !important; }
 
 @media (max-height: 699px) {
-  body.lobby-screen {
-    height: 700px;
+  html:has(body.lobby-screen) {
     overflow-y: auto;
   }
+  body.lobby-screen {
+    height: 700px;
+  }
+  body.lobby-screen #game-canvas { touch-action: pan-y; }
   body.lobby-screen #game-canvas,
   body.lobby-screen #ime-root {
     position: absolute;

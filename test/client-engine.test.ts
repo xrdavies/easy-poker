@@ -92,6 +92,8 @@ describe("2d-engine backed client", () => {
     assert.match(html, /id="ime-table"/);
     assert.match(html, /id="ime-pass"/);
     assert.match(css, /#game-canvas/);
+    assert.match(css, /html:has\(body\.lobby-screen\)[^{]*\{[^}]*overflow-y: auto/s);
+    assert.match(css, /body\.lobby-screen #game-canvas \{ touch-action: pan-y; \}/);
     assert.doesNotMatch(html, /app\.css/);
     assert.doesNotMatch(html, /id="actions"/);
     assert.doesNotMatch(html, /id="felt"/);
@@ -117,6 +119,8 @@ describe("2d-engine backed client", () => {
     const session = read("../client/src/session.ts");
     assert.match(scene, /复制邀请链接/);
     assert.match(scene, /本手结算/);
+    assert.match(scene, /const infoY = cy \+ bh \/ 2 \+ 30/);
+    assert.match(scene, /snap\?\.lastResult && !snap\.street && snap\.nextHandAt != null/);
     assert.match(scene, /btn:leave/);
     assert.match(session, /PORTRAIT_SEATS/);
     assert.match(session, /LANDSCAPE_SEATS/);

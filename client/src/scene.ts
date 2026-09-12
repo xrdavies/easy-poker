@@ -418,7 +418,7 @@ export class PokerScene implements EngineSystem {
       bx -= w + 6;
       p.button(id, bx, compact ? 46 : 8, w, 32, label, { fill, ink: fill === P.gold ? rgb(26, 18, 8) : P.ink, disabled });
     };
-    if (!(snap?.lastResult && !snap.street)) {
+    if (!(snap?.lastResult && !snap.street && snap.nextHandAt != null)) {
       btn("btn:leave", "退出", P.dim, compact ? 44 : 56);
       if (sitting) {
         btn("btn:stand", "起身", P.dim, compact ? 44 : 56);
@@ -578,15 +578,16 @@ export class PokerScene implements EngineSystem {
     if (snap.config.squidEnabled) flags.push("鱿鱼");
     if (snap.config.bounty27Enabled) flags.push("27杂色");
     flags.push(snap.config.unlimitedBuyin ? "无限买入" : `最多${snap.config.maxBuyins}次买入`);
+    const infoY = cy + bh / 2 + 30;
     if (!narrow && !compressed) {
-      p.labelCenter(flags.join(" · "), cx, cy + 52, {
+      p.labelCenter(flags.join(" · "), cx, infoY, {
         fill: rgb(200, 200, 200, 0.55),
         font: "12px 'PingFang SC', sans-serif",
         layer: 10,
         maxWidth: table.w * 0.7,
       });
     }
-    const timerY = cy + (narrow ? 62 : 70);
+    const timerY = !narrow && !compressed ? infoY + 22 : cy + (narrow ? 62 : 70);
     const voteLeft = voteMsLeft(snap, this.session.recvAt);
     const actionLeft = actionMsLeft(snap, this.session.recvAt);
     if (voteLeft != null && !compressed) {
