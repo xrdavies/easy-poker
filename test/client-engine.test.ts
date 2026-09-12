@@ -3,11 +3,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { SFX_IDS, SFX_POOL } from "../client/src/sfx.ts";
-import { syncTableEngine, tableScreenIsVisible } from "../client/src/table-engine.ts";
-// shipped entry is public/js/game.js after vite build
+import {
+  SEATS,
+  actionMsLeft,
+  fmtChips,
+  isPortraitTable,
+} from "../client/src/session.ts";
 
 const url = (p: string) => new URL(p, import.meta.url);
 const read = (p: string) => readFileSync(url(p), "utf8");
+
 describe("2d-engine backed client", () => {
   it("exports the runtime SFX ids from the shipped SFX module", () => {
     assert.deepEqual(SFX_POOL.bet, ["bet-1", "bet-2", "bet-3"]);
@@ -17,9 +22,10 @@ describe("2d-engine backed client", () => {
     }
   });
 
-  it("ships an engine-backed entry, not the standalone public/js/app.js renderer", () => {
+  it("ships an engine-drawn table, not an HTML overlay renderer", () => {
     const main = read("../client/src/main.ts");
-    const overlay = read("../client/src/overlay.ts");
+    const scene = read("../client/src/scene.ts");
+    const session = read("../client/src/session.ts");
     const sfx = read("../client/src/sfx.ts");
     const html = read("../client/index.html");
     const builtHtml = read("../public/index.html");
@@ -27,35 +33,41 @@ describe("2d-engine backed client", () => {
 
     assert.match(main, /from "@xrdavies\/2d-engine"/);
     assert.match(main, /Engine\.create/);
-    assert.match(main, /UIBridge/);
     assert.match(main, /Renderer2D/);
-    assert.match(main, /new PokerSfx/);
+    assert.match(main, /PokerScene/);
+    assert.match(scene, /Shape2D|Painter/);
+    assert.match(scene, /hitTest/);
+    assert.match(scene, /tweenValue/);
+    assert.match(scene, /easeOutBack/);
     assert.match(sfx, /AudioManager/);
-    assert.match(sfx, /audio\.load/);
-    assert.match(overlay, /PokerNet/);
+    assert.match(session, /this\.play\("shuffle"\)/);
     assert.match(read("../client/src/net.ts"), /WebSocketTransport/);
     assert.match(read("../client/src/net.ts"), /HttpClient/);
-    assert.match(overlay, /SEATS = 8/);
-    assert.match(overlay, /data-act="fold"/);
-    assert.match(overlay, /data-act="check"/);
-    assert.match(overlay, /data-act="call"/);
-    assert.match(overlay, /data-act="bet"/);
-    assert.match(overlay, /data-act="raise"/);
-    assert.match(overlay, /data-act="allin"/);
-    assert.match(overlay, /本手结算/);
-    assert.match(overlay, /inviteUrl/);
-    assert.match(overlay, /clipboard\.writeText/);
-    assert.doesNotMatch(overlay, /\brequire\s*\(/);
-    assert.doesNotMatch(overlay, /\bmodule\.exports\b/);
-    assert.doesNotMatch(main, /\brequire\s*\(/);
+    assert.equal(SEATS, 8);
+    assert.match(session, /SEATS = 8/);
+    assert.match(scene, /act:fold/);
+    assert.match(scene, /act:check/);
+    assert.match(scene, /act:call/);
+    assert.match(scene, /act:bet/);
+    assert.match(scene, /act:raise/);
+    assert.match(scene, /act:allin/);
+    assert.match(scene, /本手结算/);
+    assert.match(session, /inviteUrl/);
+    assert.match(session, /clipboard\.writeText/);
+    assert.doesNotMatch(scene, /\brequire\s*\(/);
     assert.doesNotMatch(main, /\bmodule\.exports\b/);
+    assert.equal(existsSync(fileURLToPath(url("../client/src/overlay.ts"))), false);
 
     assert.match(html, /id="game-canvas"/);
-    assert.match(html, /src="\/src\/main\.ts"/);
+    assert.match(html, /id="ime-root"/);
+    assert.doesNotMatch(html, /id="gate"/);
+    assert.doesNotMatch(html, /class="gate-card"/);
+    assert.doesNotMatch(html, /id="table-screen"/);
+    assert.doesNotMatch(html, /class="dock"/);
     assert.doesNotMatch(html, /\/js\/app\.js/);
     assert.match(builtHtml, /Easy Poker/);
     assert.match(builtHtml, /js\/game\.js/);
-    assert.doesNotMatch(builtHtml, /\/js\/app\.js/);
+    assert.doesNotMatch(builtHtml, /id="seats"/);
     assert.match(gameJs, /WebGPU|__easyPokerEngine|decodeAudioData/);
     assert.equal(existsSync(fileURLToPath(url("../public/js/app.js"))), false);
 
@@ -69,83 +81,52 @@ describe("2d-engine backed client", () => {
     }
   });
 
-  it("does not bind UIBridge to full-page chrome wrapping gate or settle", () => {
+  it("keeps native IME inputs on UIBridge, not HTML seats or actions", () => {
     const main = read("../client/src/main.ts");
     const html = read("../client/index.html");
-    const built = read("../public/index.html");
-    const gameJs = read("../public/js/game.js");
-
-    assert.match(main, /export function attachTableUiBridge/);
-    assert.match(main, /new UIBridge\(\s*canvas\s*\)/);
-    assert.doesNotMatch(main, /new UIBridge\(\s*canvas\s*,/);
-    assert.doesNotMatch(main, /#ui-root/);
-    assert.doesNotMatch(html, /id="ui-root"/);
-    assert.doesNotMatch(built, /id="ui-root"/);
-    assert.doesNotMatch(gameJs, /ui-root/);
-
-    const wrapStart = html.indexOf('class="table-wrap"');
-    assert.ok(wrapStart >= 0);
-    const wrap = html.slice(wrapStart, html.indexOf('id="showdown"'));
-    assert.doesNotMatch(wrap, /id="gate"/);
-    assert.doesNotMatch(wrap, /id="settle-screen"/);
-    assert.match(html, /id="gate"/);
-    assert.match(html, /class="gate-card"/);
-    const gateAt = html.indexOf('id="gate"');
-    const tableAt = html.indexOf('id="table-screen"');
-    assert.ok(gateAt >= 0 && tableAt > gateAt);
-
     const css = read("../public/css/engine.css");
-    assert.match(css, /#table-screen\.hidden #game-canvas/);
-    assert.match(main, /MutationObserver/);
-    assert.match(main, /syncTableEngine/);
-    assert.match(main, /startOverlay/);
-    const bootAt = main.indexOf("async function boot");
-    const overlayAt = main.indexOf("startOverlay", bootAt);
-    const createAt = main.indexOf("Engine.create", bootAt);
-    assert.ok(overlayAt >= 0 && createAt > overlayAt);
+    assert.match(main, /export function attachTableUiBridge/);
+    assert.match(main, /new UIBridge\(\s*canvas/);
+    assert.match(html, /id="ime-nick"/);
+    assert.match(html, /id="ime-table"/);
+    assert.match(html, /id="ime-pass"/);
+    assert.match(css, /#game-canvas/);
+    assert.doesNotMatch(html, /id="actions"/);
+    assert.doesNotMatch(html, /id="felt"/);
   });
 
-  it("starts WebGPU only while the table screen is visible", () => {
-    const hidden = { classList: { contains: (token: string) => token === "hidden" } };
-    const shown = { classList: { contains: () => false } };
-    assert.equal(tableScreenIsVisible(hidden), false);
-    assert.equal(tableScreenIsVisible(shown), true);
-    assert.equal(tableScreenIsVisible(null), false);
-
-    const calls: string[] = [];
-    const handle = {
-      pause: () => calls.push("pause"),
-      resume: () => calls.push("resume"),
-      resize: () => calls.push("resize"),
+  it("computes portrait layout and action timeout from shipped session helpers", () => {
+    assert.equal(isPortraitTable(390, 844), true);
+    assert.equal(isPortraitTable(1280, 720), false);
+    assert.equal(fmtChips(1200), "1,200");
+    const snap = {
+      actingPlayerId: "a",
+      actionDeadline: 10_000,
+      now: 10_000,
     };
-    syncTableEngine(false, handle, () => calls.push("start"));
-    syncTableEngine(true, null, () => calls.push("start"));
-    syncTableEngine(true, handle, () => calls.push("start"));
-    syncTableEngine(false, handle, () => calls.push("start"));
-    assert.deepEqual(calls, ["pause", "start", "resume", "resize", "pause"]);
+    assert.equal(actionMsLeft(snap, Date.now()), 0);
+    assert.equal(actionMsLeft({ ...snap, actionDeadline: Date.now() + 50_000, now: Date.now() - 100 }, Date.now())! > 0, true);
   });
 
-  it("keeps player-facing chrome: invite, 8 seats, showdown overlay", () => {
-    const overlay = read("../client/src/overlay.ts");
-    const html = read("../client/index.html");
-    assert.match(html, /复制邀请链接/);
-    assert.match(html, /本手结算/);
-    assert.match(html, /id="btn-leave"/);
-    assert.match(overlay, /PORTRAIT_SEATS/);
-    assert.match(overlay, /LANDSCAPE_SEATS/);
-    assert.match(overlay, /renderShowdown/);
-    assert.match(overlay, /actionMsLeft/);
-    assert.match(overlay, /left === 0/);
-    assert.match(overlay, /ep\.table/);
-    assert.match(overlay, /ep\.nick/);
-    assert.match(overlay, /play\("shuffle"\)/);
-    assert.match(overlay, /play\("deal"\)/);
-    assert.match(overlay, /play\("tick"\)/);
-    assert.match(overlay, /play\("win"\)/);
-    assert.match(overlay, /play\("lose"\)/);
-    assert.match(overlay, /actingPlayerId === snap\.me\?\.id/);
-    assert.doesNotMatch(html, /复制号码\+密码/);
+  it("keeps player-facing chrome: invite, 8 seats, showdown, SFX", () => {
+    const scene = read("../client/src/scene.ts");
+    const session = read("../client/src/session.ts");
+    assert.match(scene, /复制邀请链接/);
+    assert.match(scene, /本手结算/);
+    assert.match(scene, /btn:leave/);
+    assert.match(session, /PORTRAIT_SEATS/);
+    assert.match(session, /LANDSCAPE_SEATS/);
+    assert.match(session, /renderShowdown/);
+    assert.match(session, /actionMsLeft/);
+    assert.match(session, /left === 0/);
+    assert.match(session, /ep\.table/);
+    assert.match(session, /ep\.nick/);
+    assert.match(session, /play\("shuffle"\)/);
+    assert.match(session, /play\("deal"\)/);
+    assert.match(session, /play\("tick"\)/);
+    assert.match(session, /play\("win"\)/);
+    assert.match(session, /play\("lose"\)/);
+    assert.match(session, /actingPlayerId === snap\.me\?\.id/);
+    assert.doesNotMatch(read("../client/index.html"), /复制号码\+密码/);
   });
 });
-
-
