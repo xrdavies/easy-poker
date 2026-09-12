@@ -10,6 +10,7 @@
     "dev:web": "wrangler dev --config wrangler.web.toml --port 8787 --inspector-port 9230",
     "build:web": "vite build",
     "art": "node scripts/generate-art.mjs",
+    "art:preview": "node scripts/generate-court-preview.mjs",
     "deploy": "npm run deploy:api && npm run deploy:web",
     "deploy:api": "wrangler deploy --config wrangler.toml",
     "deploy:web": "npm run build:web && wrangler deploy --config wrangler.web.toml",
