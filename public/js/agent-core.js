@@ -17,7 +17,7 @@ export const PROMPT_LABELS = {
   tan_xuan: "谭轩",
   phil_ivey: "Phil Ivey",
   alan_keating: "Alan Keating",
-  aaron_zang: "臧书奴（Aaron Zang）",
+  aaron_zang: "臧书奴",
 };
 
 function playerPositions(seats) {

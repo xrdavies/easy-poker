@@ -77,7 +77,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(html, /value="tan_xuan">谭轩</);
     assert.match(html, /value="phil_ivey">Phil Ivey</);
     assert.match(html, /value="alan_keating">Alan Keating</);
-    assert.match(html, /value="aaron_zang">臧书奴（Aaron Zang）</);
+    assert.match(html, /value="aaron_zang">臧书奴</);
     assert.match(html, /id="confirm-modal"/);
     assert.match(html, /icon-btn/);
     assert.match(js, /clipboard\.writeText/);
