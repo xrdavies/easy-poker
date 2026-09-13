@@ -647,6 +647,7 @@ button { cursor: pointer; }
   .actions {
     gap: 4px;
     width: min(30vw, 400px);
+    justify-self: end;
   }
   .amount-controls { gap: 4px; }
   .amount-submit { height: 56px; min-height: 56px; }
