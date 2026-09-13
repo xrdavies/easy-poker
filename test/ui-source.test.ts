@@ -53,6 +53,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /orientation:\s*portrait[\s\S]*\.showdown\s*\{[\s\S]*position:\s*fixed/);
     assert.match(css, /#table-screen\.screen\s*\{[^}]*height:\s*100dvh[^}]*overflow:\s*hidden/s);
     assert.match(css, /height:\s*min\(100%,\s*calc\(96vw \* 1\.65\)\)/);
+    assert.match(css, /@media \(min-width:\s*821px\)[\s\S]*\.hole\s*\{[^}]*left:\s*50%[^}]*transform:\s*translate\(-50%,\s*-20px\)[^}]*\}[\s\S]*\.actions\s*\{[^}]*left:\s*calc\(50% \+ 82px\)/);
     const html = read("../public/index.html");
     assert.match(html, /id="table-rules"/);
     assert.match(html, /<footer class="dock">[\s\S]*id="showdown"/);

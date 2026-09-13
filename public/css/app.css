@@ -645,9 +645,13 @@ button { cursor: pointer; }
     transform: translate(-50%, -20px);
   }
   .actions {
+    position: fixed;
+    left: calc(50% + 82px);
+    right: auto;
+    bottom: calc(8px + env(safe-area-inset-bottom));
     gap: 4px;
     width: min(30vw, 400px);
-    justify-self: end;
+    justify-self: auto;
   }
   .amount-controls { gap: 4px; }
   .amount-submit { height: 56px; min-height: 56px; }
