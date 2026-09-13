@@ -637,10 +637,12 @@ button { cursor: pointer; }
   }
   .hole {
     position: absolute;
-    left: 50%;
+    left: 0;
+    right: 0;
     bottom: calc(8px + env(safe-area-inset-bottom));
-    margin-top: 0;
-    transform: translate(-50%, -20px);
+    width: max-content;
+    margin: 0 auto;
+    transform: translateY(-20px);
   }
   .actions {
     gap: 4px;
