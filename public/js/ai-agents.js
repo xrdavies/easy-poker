@@ -1,4 +1,4 @@
-import { decide, gameWsUrl, legalMove } from "./agent-core.js";
+import { decide, gameWsUrl, legalMove, PROMPTS, PROMPT_LABELS } from "./agent-core.js";
 
 const PROFILES_KEY = "easy-poker.ai.profiles.v1";
 const TABLES_KEY = "easy-poker.ai.tables.v1";
@@ -110,6 +110,7 @@ export class BrowserAiAgents {
       const runtime = this.runtimes.get(bot.botId);
       return {
         ...bot,
+        levelName: PROMPT_LABELS[bot.level] ?? bot.level,
         model: profile?.model ?? "模型配置已删除",
         keyLabel: profile?.keyLabel ?? "—",
         status: runtime?.status ?? "连接中",
@@ -159,7 +160,7 @@ export class BrowserAiAgents {
     if (!this.tableNumber) throw new Error("尚未进入牌桌");
     if (!this.profiles.some((profile) => profile.id === input.profileId)) throw new Error("请选择模型配置");
     if (!input.nickname.trim()) throw new Error("请填写 AI 昵称");
-    if (!["beginner", "experienced", "pro"].includes(input.level)) throw new Error("无效的 AI 水平");
+    if (!PROMPTS[input.level]) throw new Error("无效的 AI 水平");
     const bot = {
       botId: crypto.randomUUID(),
       playerId: crypto.randomUUID(),

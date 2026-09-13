@@ -12,6 +12,7 @@ import {
   type Card,
   type CreateTableInput,
   type GameEvent,
+  type HandAction,
   type HandState,
   type LegalActions,
   type PlayerState,
@@ -115,6 +116,7 @@ export interface ClientSnapshot {
   squid: SquidState | null;
   settlement: Settlement | null;
   events: GameEvent[];
+  streetActions: HandAction[];
   lastResult: LastResult | null;
   nextHandAt: number | null;
   invitePath: string;
@@ -220,6 +222,7 @@ export class Table {
           deck: data.hand.deck.slice(),
           board: data.hand.board.slice(),
           pots: data.hand.pots.map((p) => ({ ...p, eligible: p.eligible.slice() })),
+          streetActions: data.hand.streetActions?.map((action) => ({ ...action })) ?? [],
         }
       : null;
     t.squid = data.squid
@@ -273,6 +276,7 @@ export class Table {
             deck: this.hand.deck.slice(),
             board: this.hand.board.slice(),
             pots: this.hand.pots.map((p) => ({ ...p, eligible: p.eligible.slice() })),
+            streetActions: this.hand.streetActions.map((action) => ({ ...action })),
           }
         : null,
       squid: this.squid
@@ -355,7 +359,7 @@ export class Table {
       } else if (!p.folded) {
         p.folded = true;
         p.actedThisStreet = true;
-        this.events.push({ type: "fold", playerId: p.id });
+        this.recordAction(p.id, "fold");
         if (this.livePlayers().length <= 1) this.awardUncontested();
       }
     }
@@ -460,6 +464,7 @@ export class Table {
       lastFullRaise: this.config.bigBlind,
       pots: [],
       streetPot: 0,
+      streetActions: [],
     };
 
     if (this.firstDealAt === null) {
@@ -655,6 +660,7 @@ export class Table {
       squid: this.squid ? { participants: this.squid.participants.slice(), holders: this.squid.holders.slice() } : null,
       settlement: this.settlement,
       events: this.events.slice(),
+      streetActions: hand?.streetActions.map((action) => ({ ...action })) ?? [],
       lastResult: this.lastResult
         ? {
             handNumber: this.lastResult.handNumber,
@@ -899,7 +905,7 @@ export class Table {
       p.folded = true;
       p.actedThisStreet = true;
       p.inHand = p.inHand;
-      this.events.push({ type: "fold", playerId });
+      this.recordAction(playerId, "fold");
       this.afterAction();
       return;
     }
@@ -907,7 +913,7 @@ export class Table {
     if (type === "check") {
       if (toCall > 0) throw new PokerError("illegal_action", "面对下注不能过牌");
       p.actedThisStreet = true;
-      this.events.push({ type: "check", playerId });
+      this.recordAction(playerId, "check");
       this.afterAction();
       return;
     }
@@ -916,7 +922,7 @@ export class Table {
       if (toCall <= 0) throw new PokerError("illegal_action", "没有需要跟注的筹码");
       this.putChips(p, Math.min(toCall, p.chips));
       p.actedThisStreet = true;
-      this.events.push({ type: "call", playerId, amount: p.betThisStreet });
+      this.recordAction(playerId, "call", p.betThisStreet);
       this.afterAction();
       return;
     }
@@ -926,7 +932,7 @@ export class Table {
       const newBet = p.betThisStreet + put;
       this.putChips(p, put);
       this.registerBet(p, newBet, true);
-      this.events.push({ type: "allin", playerId, amount: newBet });
+      this.recordAction(playerId, "allin", newBet);
       this.afterAction();
       return;
     }
@@ -935,7 +941,7 @@ export class Table {
       if (hand.currentBet > 0) throw new PokerError("illegal_action", "已有下注，请加注");
       const to = input.amount ?? this.config.bigBlind;
       this.raiseTo(p, to);
-      this.events.push({ type: "bet", playerId, amount: to });
+      this.recordAction(playerId, "bet", to);
       this.afterAction();
       return;
     }
@@ -945,12 +951,18 @@ export class Table {
       const to = input.amount;
       if (to === undefined) throw new PokerError("illegal_action", "加注需要金额");
       this.raiseTo(p, to);
-      this.events.push({ type: "raise", playerId, amount: to });
+      this.recordAction(playerId, "raise", to);
       this.afterAction();
       return;
     }
 
     throw new PokerError("illegal_action", "未知动作");
+  }
+
+  private recordAction(playerId: string, type: ActionType, amount?: number): void {
+    const action: HandAction = amount === undefined ? { playerId, type } : { playerId, type, amount };
+    this.hand?.streetActions.push(action);
+    this.events.push(action);
   }
 
   private raiseTo(p: PlayerState, to: number): void {
@@ -1039,6 +1051,7 @@ export class Table {
     hand.currentBet = 0;
     hand.minRaise = this.config.bigBlind;
     hand.lastFullRaise = this.config.bigBlind;
+    hand.streetActions = [];
   }
 
   private dealBoard(n: number): void {

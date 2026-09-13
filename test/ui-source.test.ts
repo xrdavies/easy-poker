@@ -73,6 +73,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(html, /id="ai-modal"/);
     assert.match(html, /id="ai-use-proxy"/);
     assert.match(html, /id="ai-api-key" type="text"/);
+    assert.match(html, /value="tom_dwan">Tom Dwan 风格/);
+    assert.match(html, /value="tan_xuan">谭轩风格/);
     assert.match(html, /id="confirm-modal"/);
     assert.match(html, /icon-btn/);
     assert.match(js, /clipboard\.writeText/);
@@ -138,6 +140,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(manager, /type:\s*"action"/);
     assert.match(manager, /proxyOrigin:\s*await this\.getApiOrigin\(\)/);
     assert.match(core, /export async function decide/);
+    assert.match(core, /effectiveStacksBB/);
+    assert.match(core, /streetActions/);
     assert.doesNotMatch(cli, /agent-core|ai-agents/);
   });
 

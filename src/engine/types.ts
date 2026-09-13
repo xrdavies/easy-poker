@@ -73,6 +73,12 @@ export interface SidePot {
   eligible: string[];
 }
 
+export interface HandAction {
+  playerId: string;
+  type: ActionType;
+  amount?: number;
+}
+
 export interface HandState {
   handNumber: number;
   deck: Card[];
@@ -90,6 +96,7 @@ export interface HandState {
   lastFullRaise: number;
   pots: SidePot[];
   streetPot: number;
+  streetActions: HandAction[];
 }
 
 export interface SquidState {

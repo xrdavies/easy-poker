@@ -446,6 +446,20 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.hand!.actingPlayerId, "a");
   });
 
+  it("snapshot exposes only the current street action history", () => {
+    const { table } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({ deck: parseCards("Kc Ac Kd Ad 2c 3d 4h 5s 6c 7d 8h") });
+
+    table.action("a", { type: "call" });
+    assert.deepEqual(table.snapshot("a").streetActions, [{ playerId: "a", type: "call", amount: 2 }]);
+
+    table.action("b", { type: "check" });
+    assert.equal(table.snapshot("a").street, "flop");
+    assert.deepEqual(table.snapshot("a").streetActions, []);
+  });
+
   it("3-player button/SB/BB and UTG acts first preflop", () => {
     const { table } = open();
     joinSit(table, "a", "A");

@@ -881,8 +881,8 @@ function renderAiList() {
   const bots = aiAgents.getBots();
   $("ai-list").innerHTML = bots.length
     ? bots.map((bot) => `<details class="ai-item">
-        <summary><span class="ai-item-title"><strong>${escapeHtml(bot.nickname)}</strong><span>${escapeHtml(bot.level)} · ${escapeHtml(bot.model)} · ${escapeHtml(bot.keyLabel)}</span></span><span class="ai-status ${bot.status.includes("异常") ? "error" : ""}">${escapeHtml(bot.status)}</span></summary>
-        <div class="ai-info"><span>昵称</span><b>${escapeHtml(bot.nickname)}</b><span>水平</span><b>${escapeHtml(bot.level)}</b><span>模型</span><b>${escapeHtml(bot.model)}</b><span>API Key</span><b>${escapeHtml(bot.keyLabel)}</b><span>状态</span><b>${escapeHtml(bot.status)}${bot.error ? ` · ${escapeHtml(bot.error)}` : ""}</b></div>
+        <summary><span class="ai-item-title"><strong>${escapeHtml(bot.nickname)}</strong><span>${escapeHtml(bot.levelName)} · ${escapeHtml(bot.model)} · ${escapeHtml(bot.keyLabel)}</span></span><span class="ai-status ${bot.status.includes("异常") ? "error" : ""}">${escapeHtml(bot.status)}</span></summary>
+        <div class="ai-info"><span>昵称</span><b>${escapeHtml(bot.nickname)}</b><span>水平 / 风格</span><b>${escapeHtml(bot.levelName)}</b><span>模型</span><b>${escapeHtml(bot.model)}</b><span>API Key</span><b>${escapeHtml(bot.keyLabel)}</b><span>状态</span><b>${escapeHtml(bot.status)}${bot.error ? ` · ${escapeHtml(bot.error)}` : ""}</b></div>
         <div class="ai-item-actions"><button type="button" class="ghost sm danger" data-ai-remove="${escapeHtml(bot.botId)}">移除 AI</button></div>
       </details>`).join("")
     : '<div class="ai-empty">还没有 AI 玩家</div>';
