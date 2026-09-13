@@ -68,6 +68,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(html, /复制号码\+密码/);
     assert.doesNotMatch(html, /id="table-clock"/);
     assert.match(html, /id="btn-leave"/);
+    assert.match(html, /id="btn-ai"[^>]*desktop-only[\s\S]*id="btn-ai-label">AI玩家/);
+    assert.match(html, /id="ai-modal"/);
     assert.match(html, /icon-btn/);
     assert.match(js, /clipboard\.writeText/);
     assert.match(js, /inviteUrl/);
@@ -76,6 +78,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(js, /\brequire\s*\(/);
     assert.doesNotMatch(js, /\bmodule\.exports\b/);
     assert.match(js, /new WebSocket/);
+    assert.match(js, /new BrowserAiAgents\(getApiOrigin, renderAiPanel\)/);
+    assert.match(js, /markAiHost\(data\.snapshot\.tableNumber\)/);
     assert.match(js, /getApiOrigin/);
     assert.match(js, /config\.json/);
     assert.match(js, /document\.getElementById/);
@@ -111,6 +115,22 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(js, /亮出 27 杂色，领取奖励/);
     assert.match(js, /获得 27 杂色奖励/);
     assert.doesNotMatch(js, /if \(state\.showdownHand === hn\) return/);
+  });
+
+  it("ships persistent browser AI management without changing the CLI agent", () => {
+    const manager = read("../public/js/ai-agents.js");
+    const core = read("../public/js/agent-core.js");
+    const cli = read("../scripts/agent.mjs");
+    assert.match(manager, /easy-poker\.ai\.profiles\.v1/);
+    assert.match(manager, /easy-poker\.ai\.tables\.v1/);
+    assert.match(manager, /AES-GCM/);
+    assert.match(manager, /navigator\.locks/);
+    assert.match(manager, /type:\s*"join"/);
+    assert.match(manager, /type:\s*"sit"/);
+    assert.match(manager, /type:\s*"stand"/);
+    assert.match(manager, /type:\s*"action"/);
+    assert.match(core, /export async function decide/);
+    assert.doesNotMatch(cli, /agent-core|ai-agents/);
   });
 
   it("splits UI and API across two Workers", () => {

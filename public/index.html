@@ -75,6 +75,10 @@
             </button>
           </div>
           <div class="top-right">
+            <button type="button" id="btn-ai" class="ghost sm icon-btn desktop-only hidden">
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="5" y="7" width="14" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3v4M8.5 12h.01M15.5 12h.01M9 16h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span id="btn-ai-label">AI玩家</span>
+            </button>
             <button type="button" id="btn-sit" class="primary sm">坐下</button>
             <button type="button" id="btn-rebuy-top" class="ghost sm icon-btn hidden">
               <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
@@ -147,6 +151,45 @@
           <button type="button" id="buyin-cancel" class="ghost">取消</button>
           <button type="button" id="buyin-ok" class="primary">坐下</button>
         </div>
+      </div>
+    </div>
+    <div id="ai-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ai-modal-title">
+      <div class="modal-card ai-modal-card">
+        <div class="ai-modal-head">
+          <h3 id="ai-modal-title">AI玩家</h3>
+          <button type="button" id="ai-close" class="ghost sm" aria-label="关闭">×</button>
+        </div>
+
+        <section id="ai-list-view">
+          <div id="ai-list" class="ai-list"></div>
+          <div class="ai-footer-actions">
+            <button type="button" id="ai-add-open" class="primary">添加 AI</button>
+            <button type="button" id="ai-profiles-open" class="ghost">管理模型配置</button>
+          </div>
+        </section>
+
+        <form id="ai-bot-form" class="hidden">
+          <label class="field"><span>AI 昵称</span><input id="ai-nickname" maxlength="16" required placeholder="例如 AI-小王" /></label>
+          <label class="field"><span>水平</span><select id="ai-level"><option value="beginner">beginner</option><option value="experienced" selected>experienced</option><option value="pro">pro</option></select></label>
+          <label class="field"><span>模型配置</span><select id="ai-profile" required></select></label>
+          <label class="field"><span>买入次数</span><input id="ai-buyins" type="number" min="1" value="1" required /></label>
+          <div class="ai-footer-actions"><button type="submit" class="primary">添加并坐下</button><button type="button" class="ghost" data-ai-back>返回</button></div>
+        </form>
+
+        <section id="ai-profiles-view" class="hidden">
+          <div id="ai-profile-list" class="ai-list"></div>
+          <div class="ai-footer-actions"><button type="button" id="ai-profile-new" class="primary">添加模型配置</button><button type="button" class="ghost" data-ai-back>返回</button></div>
+        </section>
+
+        <form id="ai-profile-form" class="hidden">
+          <input id="ai-profile-id" type="hidden" />
+          <label class="field"><span>配置名称</span><input id="ai-profile-name" maxlength="24" required placeholder="例如 DeepSeek" /></label>
+          <label class="field"><span>API Key</span><input id="ai-api-key" type="password" autocomplete="off" placeholder="编辑时留空表示不修改" /></label>
+          <label class="field"><span>Base URL</span><input id="ai-base-url" type="url" required placeholder="https://api.example.com/v1" /></label>
+          <label class="field"><span>Model</span><input id="ai-model" required placeholder="例如 deepseek-chat" /></label>
+          <p class="muted ai-storage-note">API Key 加密保存在当前浏览器，不会发送给游戏服务器。</p>
+          <div class="ai-footer-actions"><button type="submit" class="primary">保存配置</button><button type="button" id="ai-profile-cancel" class="ghost">返回</button></div>
+        </form>
       </div>
     </div>
     <div id="emote-picker" class="emote-picker hidden" role="group" aria-label="选择表情"></div>

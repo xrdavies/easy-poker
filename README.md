@@ -15,6 +15,7 @@
 - 两人 All-in 时可协商发一次或发两次公共牌（默认发一次）
 - 桌局结束后只展示结算，不能重开
 - 横屏桌面与竖屏手机两套布局，发牌/行动动画与音效
+- 房主可在 Desktop 牌桌顶部添加多个浏览器端 AI 玩家，并为不同 AI 选择不同的本地模型配置
 
 ## 本地运行
 
@@ -50,7 +51,7 @@ node scripts/agent.mjs --create --web '<游戏前端地址>' --api '<游戏 API 
 
 Agent 优先通过游戏 WebSocket 接收状态，断线时自动回退到轮询。
 
-计划中的 Desktop 浏览器端多 AI 管理方案见 [docs/browser-ai-agents.md](docs/browser-ai-agents.md)。
+Desktop 浏览器端多 AI 管理方案见 [docs/browser-ai-agents.md](docs/browser-ai-agents.md)。
 
 ## 测试
 

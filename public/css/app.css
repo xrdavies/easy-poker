@@ -455,6 +455,27 @@ button { cursor: pointer; }
 .modal-card #buyin-hint { margin: 10px 0 14px; line-height: 1.5; }
 .modal-actions { display: grid; grid-template-columns: minmax(88px, 1fr) 2fr; gap: 8px; }
 .modal-actions button { width: 100%; min-height: 44px; margin: 0; white-space: nowrap; }
+.ai-modal-card { width: min(520px, calc(100% - 32px)); max-height: min(82dvh, 700px); overflow: auto; }
+.ai-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.ai-modal-head h3 { margin: 0; }
+.ai-modal-head #ai-close { font-size: 20px; line-height: 1; padding: 4px 10px; }
+.ai-list { display: grid; gap: 8px; }
+.ai-empty { padding: 22px 12px; border: 1px dashed #3a5163; border-radius: 12px; text-align: center; color: var(--muted); }
+.ai-item { border: 1px solid #2a3d4c; border-radius: 12px; background: #0b151d; padding: 10px 12px; }
+.ai-item summary { cursor: pointer; display: flex; justify-content: space-between; gap: 12px; align-items: center; list-style: none; }
+.ai-item summary::-webkit-details-marker { display: none; }
+.ai-item-title { min-width: 0; }
+.ai-item-title strong, .ai-item-title span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-item-title span, .ai-info { color: var(--muted); font-size: 12px; }
+.ai-status { flex: none; color: var(--ok); font-size: 12px; }
+.ai-status.error { color: var(--danger); }
+.ai-info { display: grid; grid-template-columns: 88px 1fr; gap: 6px 10px; margin-top: 12px; }
+.ai-info b { color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+.ai-item-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+.ai-item-actions .danger { color: #ffd0d0; border-color: #8a3a3a; }
+.ai-footer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.ai-footer-actions button { width: 100%; min-height: 40px; margin: 0; }
+.ai-storage-note { margin: 8px 0 0; font-size: 12px; line-height: 1.5; }
 .toast {
   position: fixed;
   left: 50%;
@@ -539,6 +560,8 @@ button { cursor: pointer; }
 }
 
 @media (max-width: 820px), (orientation: portrait) {
+  .desktop-only { display: none !important; }
+  #ai-modal { display: none !important; }
   #table-screen.screen { height: 100dvh; min-height: 0; overflow: hidden; }
   .table-wrap { place-items: start center; padding: 10px 8px 0; }
   .rail {
