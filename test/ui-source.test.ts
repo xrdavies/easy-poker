@@ -98,6 +98,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /queueDeals/);
     assert.match(js, /const handEnded = Boolean\(snap\.lastResult && !snap\.street\)/);
     assert.match(js, /state\.dealQueue = state\.dealQueue\.filter\(\(item\) => item\.where !== "hole"\)/);
+    assert.match(js, /if \(!snap\.me\?\.sitting\)[\s\S]*state\.shownHoles = \[\][\s\S]*\$\("hole"\)\.innerHTML = ""/);
     assert.match(js, /renderShowdown/);
     assert.match(js, /renderActions\(snap\);[\s\S]*queueDeals\(snap\);[\s\S]*}\s*renderShowdown\(snap\);\s*updateCountdown\(snap\);/);
     assert.match(js, /visualKey/);

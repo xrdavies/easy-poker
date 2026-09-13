@@ -406,6 +406,11 @@ function queueDeals(snap) {
   const board = snap.board ?? [];
   const hn = snap.handNumber;
   const handEnded = Boolean(snap.lastResult && !snap.street);
+  if (!snap.me?.sitting) {
+    state.dealQueue = state.dealQueue.filter((item) => item.where !== "hole");
+    state.shownHoles = [];
+    $("hole").innerHTML = "";
+  }
   if (hn !== state.dealHand || board.length < state.shownBoard.length) {
     if (hn !== state.dealHand && (holes.length || board.length)) play("shuffle");
     state.dealHand = hn;

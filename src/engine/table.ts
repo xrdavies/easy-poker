@@ -367,6 +367,8 @@ export class Table {
     p.seat = null;
     p.timeoutStreak = 0;
     p.inHand = false;
+    p.holeCards = null;
+    p.shown = false;
     if (!this.canStartHand()) this.nextHandAt = null;
   }
 
@@ -614,8 +616,8 @@ export class Table {
       .filter((p) => !p.sitting)
       .map((p) => ({ id: p.id, nickname: p.nickname }));
     let holeCards: Card[] | undefined;
-    if (viewer?.holeCards) holeCards = viewer.holeCards.slice();
-    else if (viewer && this.lastResult?.shown[viewer.id]) holeCards = this.lastResult.shown[viewer.id]!.slice();
+    if (viewer?.sitting && viewer.holeCards) holeCards = viewer.holeCards.slice();
+    else if (viewer?.sitting && this.lastResult?.shown[viewer.id]) holeCards = this.lastResult.shown[viewer.id]!.slice();
 
     return {
       tableNumber: this.tableNumber,

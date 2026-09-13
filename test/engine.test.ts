@@ -354,6 +354,21 @@ describe("identities / 昵称 / buy-in / privacy", () => {
     assert.equal(table.players.get("a")!.chips, chips);
   });
 
+  it("standing during a hand folds and discards that player's hole cards", () => {
+    const { table } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    joinSit(table, "c", "C");
+    table.startHand({ deck: parseCards("2c 3d 4h 5s 6c 7d 8h 9s Tc Jd Qh") });
+    const id = table.hand!.actingPlayerId!;
+
+    table.stand(id);
+
+    assert.equal(table.players.get(id)!.folded, true);
+    assert.equal(table.players.get(id)!.holeCards, null);
+    assert.equal(table.snapshot(id).me?.holeCards, undefined);
+  });
+
   it("public snapshot omits others’ hole cards and undealt cards; owner sees 手牌", () => {
     const { table } = open();
     joinSit(table, "a", "A");
