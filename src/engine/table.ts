@@ -702,7 +702,7 @@ export class Table {
   }
 
   private displayedPot(): number {
-    if (this.lastResult && !this.hand) return this.lastResult.pot;
+    if (this.lastResult && !this.hand && this.nextHandAt != null) return this.lastResult.pot;
     let total = 0;
     for (const p of this.players.values()) total += p.committed;
     return total;

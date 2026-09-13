@@ -633,6 +633,8 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.players.get("a")!.sitting, false);
     assert.equal(table.players.get("a")!.seat, null);
     assert.equal(table.players.get("a")!.timeoutStreak, 0);
+    assert.equal(table.nextHandAt, null);
+    assert.equal(table.snapshot("b").pot, 0);
   });
 
   it("rebuy credits chips only when the next hand starts; busted player is not dealt in", () => {

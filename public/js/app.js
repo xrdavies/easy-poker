@@ -251,6 +251,7 @@ function visualKey(snap) {
     pot: snap.pot,
     legal: snap.legal,
     last: snap.lastResult,
+    next: snap.nextHandAt,
     vote: snap.runoutVote,
     portrait: isPortraitTable(),
     seats: snap.seats.map((s) =>
@@ -272,11 +273,11 @@ function renderTable(snap) {
   if (key !== state.visualKey) {
     state.visualKey = key;
     renderSeats(snap);
-    $("felt").classList.toggle("is-showdown", Boolean(snap.lastResult && !snap.street));
-    $("street-label").textContent = !snap.street && snap.status === "waiting" ? "等待玩家" : "";
+    $("felt").classList.toggle("is-showdown", Boolean(snap.lastResult && !snap.street && snap.nextHandAt));
+    $("street-label").textContent = !snap.street && !snap.nextHandAt ? "等待开局" : "";
     $("pot").innerHTML = snap.pot ? chipStackHTML(snap.pot) : `<span class="chip-amt">底池 0</span>`;
     const bannerBits = [];
-    if (snap.lastResult?.winners?.length && !snap.street) {
+    if (snap.lastResult?.winners?.length && !snap.street && snap.nextHandAt) {
       bannerBits.push(
         snap.lastResult.winners
           .filter((w) => w.amount > 0)
@@ -401,9 +402,9 @@ function pumpDeal() {
 function renderShowdown(snap) {
   const box = $("showdown");
   if (!box) return;
-  if (!snap.lastResult || snap.street) {
+  if (!snap.lastResult || snap.street || !snap.nextHandAt) {
     box.classList.add("hidden");
-    if (snap.street) state.showdownHand = null;
+    if (snap.street || !snap.nextHandAt) state.showdownHand = null;
     return;
   }
   box.classList.remove("hidden");
@@ -564,17 +565,19 @@ function renderActions(snap) {
   if (!legal) {
     state.raiseOpen = false;
     const extras = [];
-    if (snap.me?.holeCards && snap.lastResult && !snap.street && !snap.lastResult.shown?.[snap.me.id]) {
+    if (snap.me?.holeCards && snap.lastResult && !snap.street && snap.nextHandAt && !snap.lastResult.shown?.[snap.me.id]) {
       extras.push(`<button type="button" data-act="show" class="ghost">亮牌</button>`);
     }
     const waitText =
-      snap.lastResult && !snap.street
-        ? "摊牌结算中"
-        : snap.me?.sitting && snap.me.chips === 0
-          ? "未补码，不参与下一手"
-          : snap.me?.sitting
-            ? "等待行动"
-            : "观战中，坐下后可参与下一手";
+      snap.me?.sitting && snap.me.chips === 0
+        ? "未补码，不参与下一手"
+        : !snap.street && !snap.nextHandAt
+          ? "等待开局"
+          : snap.lastResult && !snap.street
+            ? "摊牌结算中"
+            : snap.me?.sitting
+              ? "等待行动"
+              : "观战中，坐下后可参与下一手";
     box.innerHTML = extras.join("") || `<span class="muted">${waitText}</span>`;
     return;
   }
