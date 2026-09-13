@@ -633,7 +633,12 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.players.get("a")!.sitting, false);
     assert.equal(table.players.get("a")!.seat, null);
     assert.equal(table.players.get("a")!.timeoutStreak, 0);
+    assert.equal(table.nextHandAt, clk.now() + HAND_PAUSE_MS);
+    assert.ok(table.snapshot("b").lastResult);
+    clk.add(HAND_PAUSE_MS);
+    table.tick();
     assert.equal(table.nextHandAt, null);
+    assert.equal(table.lastResult, null);
     assert.equal(table.snapshot("b").pot, 0);
   });
 

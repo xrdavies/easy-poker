@@ -514,7 +514,7 @@ export class Table {
     const due: number[] = [];
     if (this.runoutVote) due.push(this.runoutVote.deadline);
     else if (this.hand?.actionDeadline != null) due.push(this.hand.actionDeadline);
-    if (!this.hand && this.nextHandAt != null && this.canStartHand()) due.push(this.nextHandAt);
+    if (!this.hand && this.nextHandAt != null) due.push(this.nextHandAt);
     if (!this.hand && this.endsAt != null) due.push(this.endsAt);
     if (!this.hand && this.nextHandAt == null && this.canStartHand()) due.push(this.now() + nextHandDelayMs);
     return due.length ? Math.min(...due) : null;
@@ -552,15 +552,24 @@ export class Table {
         }
       } else this.progressHand();
       if (this.hand?.actingPlayerId === id) this.progressHand();
-      if (this.status !== "finished" && p?.sitting && p.timeoutStreak >= MAX_TIMEOUT_STREAK) this.stand(id);
+      if (this.status !== "finished" && p?.sitting && p.timeoutStreak >= MAX_TIMEOUT_STREAK) {
+        this.stand(id);
+        if (this.lastResult && !this.hand && this.nextHandAt == null) {
+          this.nextHandAt = this.now() + HAND_PAUSE_MS;
+        }
+      }
     }
     if (this.hand && !this.hand.actingPlayerId && !this.runoutVote) this.progressHand();
     if (!this.hand && this.endsAt !== null && this.now() >= this.endsAt) {
       this.settle("duration");
       return;
     }
-    if (!this.hand && this.nextHandAt != null && this.now() >= this.nextHandAt && this.canStartHand()) {
-      this.startHand();
+    if (!this.hand && this.nextHandAt != null && this.now() >= this.nextHandAt) {
+      if (this.canStartHand()) this.startHand();
+      else {
+        this.nextHandAt = null;
+        this.lastResult = null;
+      }
     }
   }
 
