@@ -69,7 +69,7 @@ export function modelProxyUrl(value: unknown): URL {
   return url;
 }
 
-async function modelProxy(request: Request): Promise<Response> {
+export async function modelProxy(request: Request): Promise<Response> {
   const authorization = request.headers.get("authorization") ?? "";
   if (!/^Bearer\s+\S+$/i.test(authorization)) return Response.json({ error: "missing_api_key" }, { status: 401 });
   try {
@@ -81,9 +81,10 @@ async function modelProxy(request: Request): Promise<Response> {
       method: "POST",
       headers: { "content-type": "application/json", authorization },
       body: JSON.stringify(payload.body),
-      redirect: "error",
+      redirect: "manual",
       signal: request.signal,
     });
+    if (upstream.status >= 300 && upstream.status < 400) throw new Error("模型代理不允许重定向");
     return new Response(upstream.body, {
       status: upstream.status,
       headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
