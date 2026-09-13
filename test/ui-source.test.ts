@@ -73,11 +73,11 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(html, /id="ai-modal"/);
     assert.match(html, /id="ai-use-proxy"/);
     assert.match(html, /id="ai-api-key" type="text"/);
-    assert.match(html, /value="tom_dwan">Tom Dwan 风格/);
-    assert.match(html, /value="tan_xuan">谭轩风格/);
-    assert.match(html, /value="phil_ivey">Phil Ivey 风格/);
-    assert.match(html, /value="alan_keating">Alan Keating 风格/);
-    assert.match(html, /value="aaron_zang">臧书奴（Aaron Zang）风格/);
+    assert.match(html, /value="tom_dwan">Tom Dwan</);
+    assert.match(html, /value="tan_xuan">谭轩</);
+    assert.match(html, /value="phil_ivey">Phil Ivey</);
+    assert.match(html, /value="alan_keating">Alan Keating</);
+    assert.match(html, /value="aaron_zang">臧书奴（Aaron Zang）</);
     assert.match(html, /id="confirm-modal"/);
     assert.match(html, /icon-btn/);
     assert.match(js, /clipboard\.writeText/);

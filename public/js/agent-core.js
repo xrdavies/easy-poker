@@ -13,11 +13,11 @@ export const PROMPT_LABELS = {
   beginner: "新手",
   experienced: "有经验",
   pro: "职业",
-  tom_dwan: "Tom Dwan 风格",
-  tan_xuan: "谭轩风格",
-  phil_ivey: "Phil Ivey 风格",
-  alan_keating: "Alan Keating 风格",
-  aaron_zang: "臧书奴（Aaron Zang）风格",
+  tom_dwan: "Tom Dwan",
+  tan_xuan: "谭轩",
+  phil_ivey: "Phil Ivey",
+  alan_keating: "Alan Keating",
+  aaron_zang: "臧书奴（Aaron Zang）",
 };
 
 function playerPositions(seats) {
