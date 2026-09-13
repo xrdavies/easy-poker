@@ -44,5 +44,5 @@ test("browser AI receives factual position, stack, player count, and street acti
   assert.equal(context.activePlayerCount, 5);
   assert.deepEqual(context.effectiveStacksBB.map((item) => item.value), [50, 100, 100, 40]);
   assert.equal(context.streetActions[0].amountBB, 1);
-  assert.ok(PROMPTS.tom_dwan && PROMPTS.tan_xuan);
+  for (const style of ["tom_dwan", "tan_xuan", "phil_ivey", "alan_keating", "aaron_zang"]) assert.ok(PROMPTS[style]);
 });

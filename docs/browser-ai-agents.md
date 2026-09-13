@@ -40,7 +40,7 @@ pro · gpt-4o · KEY-02
 AI 详情仅显示：
 
 - 昵称；
-- 水平 / 牌手风格：`beginner`、`experienced`、`pro`、`tom_dwan` 或 `tan_xuan`；
+- 水平 / 牌手风格：`beginner`、`experienced`、`pro`、`tom_dwan`、`tan_xuan`、`phil_ivey`、`alan_keating` 或 `aaron_zang`；
 - Model；
 - API Key 编号，例如 `KEY-01`；
 - 状态。
