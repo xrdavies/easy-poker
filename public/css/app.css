@@ -630,7 +630,13 @@ button { cursor: pointer; }
     min-height: 88px;
     padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
   }
-  .hole { transform: translateY(-20px); }
+  .hole {
+    position: absolute;
+    left: 50%;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    margin-top: 0;
+    transform: translate(-50%, -20px);
+  }
   .actions { gap: 4px; }
   .amount-controls { gap: 4px; }
   .amount-submit { height: 56px; min-height: 56px; }
