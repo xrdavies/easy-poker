@@ -31,7 +31,34 @@ npm run dev
 
 端口被其他开发会话占用时，`npm run dev` 会自动选择附近空闲端口；也可用 `EASY_POKER_API_PORT`、`EASY_POKER_WEB_PORT` 指定端口。
 
-## 本地 AI 玩家
+## Desktop 浏览器 AI 玩家
+
+房主创建牌桌后，可在桌面版顶部点击「AI玩家」，直接从当前网页添加和管理多个 AI。每个 AI 可以使用不同的 API Key、Base URL、Model 和水平 / 牌手 Prompt。
+
+使用步骤：
+
+1. 打开「AI玩家 → 管理模型配置」，保存模型 API 配置；API Key 会加密保存在当前浏览器。
+2. 模型 API 不支持浏览器 CORS 时，勾选「通过游戏代理访问模型 API」；请求会经过游戏 API Worker 转发，但不会保存 API Key。
+3. 点击「添加 AI」，选择昵称、买入次数、模型配置以及水平 / 牌手 Prompt。
+4. AI 会作为独立玩家加入牌桌。页面刷新后自动恢复；房主移除 AI 后不再恢复。
+
+模型决策只使用可见牌局事实，包括按钮位、大小盲、当前位置、有效筹码、BB 深度、当前参与人数和本街行动历史，不会读取其他玩家手牌或假设对手风格。
+
+### 牌手 Prompt
+
+牌手 Prompt 是基于公开牌局特征的近似模拟，与「新手」「有经验」「职业」处于同一级选项：
+
+| 牌手 | 模拟特征 |
+| --- | --- |
+| Tom Dwan | 松凶施压，深筹码和后位扩大范围，善用半诈唬、check-raise、多街施压和极化尺度 |
+| 谭轩 | 高波动进攻，倾向主动加注和大尺度下注，强听牌与关键阻断牌保持压力 |
+| Phil Ivey | 冷静全面，根据位置、筹码和行动线路灵活调整，兼顾薄价值、bluff-catch 与纪律性弃牌 |
+| Alan Keating | 超松凶高压，扩大入池和再加注范围，主动制造大底池并接受较高方差 |
+| 臧书奴 | 重视数学与长期优势，耐心控制边缘风险，优势明确时果断施压并争取最大价值 |
+
+浏览器 AI 的完整设计和安全边界见 [docs/browser-ai-agents.md](docs/browser-ai-agents.md)。
+
+## 命令行 AI Agent
 
 先在 `.env` 中配置模型所需的 `API_KEY`、`BASE_URL` 和 `MODEL`，然后让 Agent 通过邀请链接加入已有牌桌：
 
@@ -50,8 +77,6 @@ node scripts/agent.mjs --create --web '<游戏前端地址>' --api '<游戏 API 
 `--level` 可选 `beginner`、`experienced`、`pro`；可用 `--api` 或 `GAME_API_URL` 指定游戏 API。AI 先请求 Responses，服务不支持时回退到 Chat Completions。
 
 Agent 优先通过游戏 WebSocket 接收状态，断线时自动回退到轮询。
-
-Desktop 浏览器端多 AI 管理方案见 [docs/browser-ai-agents.md](docs/browser-ai-agents.md)。
 
 ## 测试
 
