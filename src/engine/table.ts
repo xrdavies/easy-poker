@@ -24,6 +24,8 @@ import {
   type TableStatus,
 } from "./types.ts";
 
+const MAX_TIMEOUT_STREAK = 3;
+
 export interface TableJSON {
   tableNumber: string;
   password: string;
@@ -154,6 +156,7 @@ function emptyPlayer(id: string, nickname: string): PlayerState {
     shown: false,
     autoStraddle: false,
     pendingBuyinChips: 0,
+    timeoutStreak: 0,
   };
 }
 
@@ -200,7 +203,12 @@ export class Table {
     t.players = new Map(
       data.players.map((p) => [
         p.id,
-        { ...p, holeCards: p.holeCards ? p.holeCards.slice() : null, pendingBuyinChips: p.pendingBuyinChips ?? 0 },
+        {
+          ...p,
+          holeCards: p.holeCards ? p.holeCards.slice() : null,
+          pendingBuyinChips: p.pendingBuyinChips ?? 0,
+          timeoutStreak: p.timeoutStreak ?? 0,
+        },
       ]),
     );
     t.buttonSeat = data.buttonSeat;
@@ -330,6 +338,7 @@ export class Table {
     const seat = empty[Math.floor(this.random() * empty.length)]!;
     p.seat = seat;
     p.sitting = true;
+    p.timeoutStreak = 0;
     this.seats[seat] = p.id;
     this.maybeJoinSquid(p.id);
     this.maybeScheduleNextHand();
@@ -356,6 +365,7 @@ export class Table {
     this.seats[p.seat] = null;
     p.sitting = false;
     p.seat = null;
+    p.timeoutStreak = 0;
     p.inHand = false;
     if (!this.canStartHand()) this.nextHandAt = null;
   }
@@ -516,6 +526,8 @@ export class Table {
     if (this.hand.actingPlayerId !== playerId) throw new PokerError("not_your_turn", "还没轮到你");
     this.events = [];
     this.applyAction(playerId, input);
+    const p = this.players.get(playerId);
+    if (p) p.timeoutStreak = 0;
   }
 
   tick(): void {
@@ -528,6 +540,7 @@ export class Table {
       const p = this.players.get(id);
       this.events = [];
       this.events.push({ type: "timeout", playerId: id });
+      if (p) p.timeoutStreak += 1;
       if (p && !p.folded) {
         const toCall = Math.max(0, this.hand.currentBet - p.betThisStreet);
         if (toCall === 0) {
@@ -539,6 +552,7 @@ export class Table {
         }
       } else this.progressHand();
       if (this.hand?.actingPlayerId === id) this.progressHand();
+      if (this.status !== "finished" && p?.sitting && p.timeoutStreak >= MAX_TIMEOUT_STREAK) this.stand(id);
     }
     if (this.hand && !this.hand.actingPlayerId && !this.runoutVote) this.progressHand();
     if (!this.hand && this.endsAt !== null && this.now() >= this.endsAt) {

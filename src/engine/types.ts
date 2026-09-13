@@ -60,6 +60,7 @@ export interface PlayerState {
   shown: boolean;
   autoStraddle: boolean;
   pendingBuyinChips: number;
+  timeoutStreak: number;
 }
 
 export interface RunoutVote {

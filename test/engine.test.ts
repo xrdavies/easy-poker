@@ -613,6 +613,28 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.lastResult, null);
   });
 
+  it("forces a player to stand after three consecutive timeouts", () => {
+    const { table, clk } = open({ tableNumber: "TO3ST1" });
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({ deck: parseCards("Kc Ac Kd Ad 2c 3d 4h 5s 6c 7d 8h") });
+
+    table.action("a", { type: "call" });
+    table.action("b", { type: "check" });
+    for (let timeout = 1; timeout <= 3; timeout++) {
+      assert.equal(table.hand!.actingPlayerId, "b");
+      table.action("b", { type: "check" });
+      assert.equal(table.hand!.actingPlayerId, "a");
+      clk.add(ACTION_MS);
+      table.tick();
+      if (timeout < 3) assert.equal(table.players.get("a")!.timeoutStreak, timeout);
+    }
+
+    assert.equal(table.players.get("a")!.sitting, false);
+    assert.equal(table.players.get("a")!.seat, null);
+    assert.equal(table.players.get("a")!.timeoutStreak, 0);
+  });
+
   it("rebuy credits chips only when the next hand starts; busted player is not dealt in", () => {
     const { table, clk } = open();
     joinSit(table, "a", "A");
