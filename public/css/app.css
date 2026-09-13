@@ -627,8 +627,13 @@ button { cursor: pointer; }
 
 @media (min-width: 821px) and (orientation: landscape) {
   .dock {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
     min-height: 88px;
     padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+    z-index: 6;
   }
   .hole {
     position: absolute;
@@ -637,11 +642,21 @@ button { cursor: pointer; }
     margin-top: 0;
     transform: translate(-50%, -20px);
   }
-  .actions { gap: 4px; }
+  .actions {
+    gap: 4px;
+    width: min(32vw, 440px);
+  }
   .amount-controls { gap: 4px; }
   .amount-submit { height: 56px; min-height: 56px; }
-  .action-row { gap: 4px; }
-  .action-row button { height: 40px; min-height: 40px; }
+  .action-row { gap: 4px; align-items: stretch; }
+  .action-row button {
+    height: 40px;
+    min-height: 40px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   .raise-presets button { height: 28px; min-height: 28px; }
   .raise-ctl { height: 26px; }
   .actions input[type="range"] { height: 22px; }
