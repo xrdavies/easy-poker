@@ -38,6 +38,24 @@ function toast(msg) {
   toast._t = setTimeout(() => el.classList.add("hidden"), 2200);
 }
 
+let confirmResolve;
+function gameConfirm(message, okLabel = "确认") {
+  $("confirm-message").textContent = message;
+  $("confirm-ok").textContent = okLabel;
+  $("confirm-modal").classList.remove("hidden");
+  $("confirm-ok").focus();
+  return new Promise((resolve) => { confirmResolve = resolve; });
+}
+
+function closeConfirm(result) {
+  $("confirm-modal").classList.add("hidden");
+  confirmResolve?.(result);
+  confirmResolve = null;
+}
+
+$("confirm-cancel").onclick = () => closeConfirm(false);
+$("confirm-ok").onclick = () => closeConfirm(true);
+
 const SFX_POOL = {
   fold: ["fold"],
   check: ["check"],
@@ -926,16 +944,16 @@ $("ai-profile-form").onsubmit = async (event) => {
 };
 $("ai-list").onclick = async (event) => {
   const button = event.target.closest("[data-ai-remove]");
-  if (!button || !confirm("移除这个 AI 玩家？")) return;
+  if (!button || !await gameConfirm("移除这个 AI 玩家？", "移除")) return;
   button.disabled = true;
   await aiAgents.removeBot(button.dataset.aiRemove);
   renderAiList();
 };
-$("ai-profile-list").onclick = (event) => {
+$("ai-profile-list").onclick = async (event) => {
   const edit = event.target.closest("[data-profile-edit]");
   if (edit) return openProfileForm(edit.dataset.profileEdit);
   const remove = event.target.closest("[data-profile-remove]");
-  if (!remove || !confirm("删除这个模型配置？")) return;
+  if (!remove || !await gameConfirm("删除这个模型配置？", "删除")) return;
   try { aiAgents.removeProfile(remove.dataset.profileRemove); renderAiProfiles(); }
   catch (err) { toast(err.message); }
 };
