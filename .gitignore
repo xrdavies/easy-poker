@@ -1,6 +1,7 @@
 node_modules/
 .wrangler/
 .dev.vars
+.env
 .DS_Store
 *.log
 dist/
@@ -9,3 +10,4 @@ dist/
 .playwright-mcp/
 ui-desktop.png
 ui-mobile.png
+easy-poker-*.png

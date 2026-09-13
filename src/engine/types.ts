@@ -18,6 +18,7 @@ export type ActionType = "fold" | "check" | "call" | "bet" | "raise" | "allin";
 
 export interface TableConfig {
   durationMinutes: DurationMinutes;
+  shortDeck: boolean;
   unlimitedBuyin: boolean;
   maxBuyins: number;
   straddleAllowed: boolean;
@@ -29,6 +30,7 @@ export interface TableConfig {
 
 export interface CreateTableInput {
   durationMinutes: number;
+  shortDeck?: boolean;
   unlimitedBuyin?: boolean;
   maxBuyins?: number;
   straddleAllowed?: boolean;

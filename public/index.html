@@ -45,8 +45,9 @@
               <input id="max-buyins" type="number" min="1" max="99" value="10" />
             </label>
             <label class="check"><input type="checkbox" id="straddle" /> 允许 Straddle（默认关）</label>
+            <label class="check"><input type="checkbox" id="short-deck" /> 短牌（6 到 A，同花大于葫芦）</label>
             <label class="check"><input type="checkbox" id="squid" /> 鱿鱼游戏（默认关）</label>
-            <label class="check"><input type="checkbox" id="bounty" checked /> 27 杂色奖励（默认开）</label>
+            <label class="check"><input type="checkbox" id="bounty" checked /> 27 杂色奖励（翻牌后逼退对手将自动亮牌，每人支付 5BB）</label>
             <button type="submit" class="primary">创建并进入</button>
           </form>
           <form id="join-form" class="panel hidden">
@@ -68,12 +69,12 @@
           <div class="top-left">
             <strong class="logo">Easy Poker</strong>
             <span id="table-id" class="mono"></span>
-          </div>
-          <div class="top-right">
             <button type="button" id="btn-copy-link" class="ghost sm icon-btn">
               <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-              复制邀请链接
+              邀请链接
             </button>
+          </div>
+          <div class="top-right">
             <button type="button" id="btn-sit" class="primary sm">坐下</button>
             <button type="button" id="btn-rebuy-top" class="ghost sm icon-btn hidden">
               <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
@@ -137,18 +138,18 @@
     <div id="modal" class="modal hidden">
       <div class="modal-card">
         <h3>补充筹码</h3>
-        <p class="muted">每次 buy-in = 100 大盲。补码在下一手开始时到账，本手不会立刻增加筹码。</p>
         <label class="field">
-          <span>buy-in 次数</span>
+          <span>买入次数</span>
           <input id="buyin-n" type="number" min="1" value="1" />
         </label>
         <p id="buyin-hint" class="muted"></p>
-        <div class="row">
+        <div class="row modal-actions">
           <button type="button" id="buyin-cancel" class="ghost">取消</button>
           <button type="button" id="buyin-ok" class="primary">坐下</button>
         </div>
       </div>
     </div>
+    <div id="emote-picker" class="emote-picker hidden" role="group" aria-label="选择表情"></div>
     <div id="toast" class="toast hidden"></div>
 
     <audio id="sfx-fold" src="/sounds/fold.m4a" preload="auto"></audio>

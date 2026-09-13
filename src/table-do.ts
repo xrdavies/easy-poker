@@ -70,7 +70,7 @@ export class TableDO {
     try {
       const snapshot = await this.apply(body);
       if (body.playerId) ws.serializeAttachment({ playerId: String(body.playerId) });
-      void snapshot;
+      if (snapshot) ws.send(JSON.stringify({ type: "state", snapshot }));
     } catch (err) {
       ws.send(JSON.stringify({ type: "error", ...errorBody(err) }));
     }
@@ -102,6 +102,7 @@ export class TableDO {
     const table = createTable(
       {
         durationMinutes: body.durationMinutes,
+        shortDeck: body.shortDeck,
         unlimitedBuyin: body.unlimitedBuyin,
         maxBuyins: body.maxBuyins,
         straddleAllowed: body.straddleAllowed,
@@ -154,6 +155,9 @@ export class TableDO {
           break;
         case "show":
           table.showCards(playerId);
+          break;
+        case "emote":
+          table.emote(playerId, String(body.emoji ?? ""));
           break;
         case "autoStraddle":
           table.setAutoStraddle(playerId, Boolean(body.on));

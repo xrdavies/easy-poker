@@ -1,11 +1,13 @@
 # Easy Poker
 
-多人在线德州扑克（长牌现金桌）。**前端 Worker** 托管页面，**API Worker** 托管游戏权威服务和 WebSocket，用 Durable Object 作为每一张游戏桌的实时房间。两个 Worker 分开部署。
+多人在线德州扑克（长牌/短牌现金桌）。**前端 Worker** 托管页面，**API Worker** 托管游戏权威服务和 WebSocket，用 Durable Object 作为每一张游戏桌的实时房间。两个 Worker 分开部署。
 
 ## 功能
 
 - 最多 8 人，两人坐下即可开局，结束前可随时观战或坐下
-- 创建桌时可设时长（30 分钟 / 1 小时 / 2 小时 / 4 小时 / 8 小时）、无限或有限 buy-in、是否允许 straddle、鱿鱼游戏、27 杂色奖励
+- 创建桌时可设时长（30 分钟 / 1 小时 / 2 小时 / 4 小时 / 8 小时）、无限或有限 buy-in、是否允许 straddle、鱿鱼游戏、27 杂色奖励（翻牌后用 72 杂色逼退所有对手时自动亮牌，其他在座玩家各支付 5BB）
+- 创建桌时可选择标准短牌（6-A，同花大于葫芦），默认长牌
+- 点击自己的头像发送 12 种固定表情，其他玩家会看到头像上方的气泡
 - 用邀请链接或「桌号 + 密码」拉人
 - 无需注册：本地生成唯一玩家标识，昵称可点「随机名」
 - 标准德州长牌：翻牌前 / 翻牌 / 转牌 / 河牌，边池，10 秒超时默认过牌，不能过则弃牌（最后 5 秒滴答提示）
@@ -25,6 +27,28 @@ npm run dev
 ```
 
 浏览器打开 `http://localhost:8787`（前端）。API 在 `http://127.0.0.1:8789`。
+
+端口被其他开发会话占用时，`npm run dev` 会自动选择附近空闲端口；也可用 `EASY_POKER_API_PORT`、`EASY_POKER_WEB_PORT` 指定端口。
+
+## 本地 AI 玩家
+
+先在 `.env` 中配置模型所需的 `API_KEY`、`BASE_URL` 和 `MODEL`，然后让 Agent 通过邀请链接加入已有牌桌：
+
+```bash
+source .env
+node scripts/agent.mjs --invite '<邀请链接>' --name AI玩家 --level experienced --api '<游戏 API 地址>'
+```
+
+也可以使用桌号和密码加入，或由 Agent 创建新牌桌：
+
+```bash
+node scripts/agent.mjs '<桌号>' '<密码>' --name AI玩家 --level beginner --api '<游戏 API 地址>'
+node scripts/agent.mjs --create --web '<游戏前端地址>' --api '<游戏 API 地址>'
+```
+
+`--level` 可选 `beginner`、`experienced`、`pro`；可用 `--api` 或 `GAME_API_URL` 指定游戏 API。AI 先请求 Responses，服务不支持时回退到 Chat Completions。
+
+Agent 优先通过游戏 WebSocket 接收状态，断线时自动回退到轮询。
 
 ## 测试
 

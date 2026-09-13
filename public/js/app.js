@@ -1,6 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const SUIT = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const SEATS = 8;
+const EMOJI = ["😡", "😤", "😫", "😄", "😂", "🥳", "😅", "🙃", "😏", "😜", "🤔", "😭"];
 const state = {
   playerId: localStorage.getItem("ep.id") || crypto.randomUUID(),
   nickname: localStorage.getItem("ep.nick") || "",
@@ -20,7 +21,9 @@ const state = {
   apiOrigin: "",
   wsConnecting: false,
   actionLock: false,
+  raiseOpen: false,
   lastTickSec: null,
+  emoteTimer: null,
 };
 
 localStorage.setItem("ep.id", state.playerId);
@@ -55,7 +58,7 @@ function play(name) {
   try {
     const node = el.cloneNode(true);
     node.currentTime = 0;
-    void node.play();
+    void node.play().catch(() => {});
   } catch {
     /* autoplay may block until a gesture */
   }
@@ -213,6 +216,9 @@ function applySnapshot(snap) {
   $("settle-screen").classList.add("hidden");
   $("table-screen").classList.remove("hidden");
   renderTable(snap);
+  clearTimeout(state.emoteTimer);
+  const nextExpiry = Math.min(...snap.seats.map((s) => s?.reaction?.until ?? Infinity));
+  if (Number.isFinite(nextExpiry)) state.emoteTimer = setTimeout(() => renderTable(state.snapshot), Math.max(0, nextExpiry - Date.now() + 25));
   playEvents(snap.events);
 }
 
@@ -249,14 +255,14 @@ function visualKey(snap) {
     portrait: isPortraitTable(),
     seats: snap.seats.map((s) =>
       s
-        ? [s.playerId, s.chips, s.pendingChips, s.bet, s.folded, s.acting, s.holeCards, s.isButton, s.isSb, s.isBb, s.sitting]
+        ? [s.playerId, s.chips, s.pendingChips, s.bet, s.folded, s.acting, s.holeCards, s.isButton, s.isSb, s.isBb, s.sitting, s.reaction?.until > Date.now() ? s.reaction : null]
         : null,
     ),
   });
 }
 
 function renderTable(snap) {
-  $("table-id").textContent = `${snap.tableNumber} · ${snap.password}`;
+  $("table-id").textContent = `${snap.tableNumber}/${snap.password}`;
   paintRemain(snap.remainingMs);
   const sitting = Boolean(snap.me?.sitting);
   $("btn-sit").classList.toggle("hidden", sitting);
@@ -280,17 +286,17 @@ function renderTable(snap) {
       if (snap.me?.sitting && snap.me.chips === 0) bannerBits.push("筹码为 0，补码后从下一手参与");
     }
     $("banner").textContent = bannerBits.join(" · ");
-    const flags = [];
+    const flags = [snap.config.shortDeck ? "短牌 6-A · 同花>葫芦" : "长牌 2-A"];
     if (snap.config.straddleAllowed) flags.push("Straddle");
     if (snap.config.squidEnabled) flags.push("鱿鱼");
-    if (snap.config.bounty27Enabled) flags.push("27杂色");
+    if (snap.config.bounty27Enabled) flags.push("27杂色·翻牌后逼退·5BB/人");
     flags.push(snap.config.unlimitedBuyin ? "无限买入" : `最多${snap.config.maxBuyins}次买入`);
     const flagsEl = $("table-rule-flags");
     if (flagsEl) flagsEl.textContent = flags.join(" · ");
     renderActions(snap);
     queueDeals(snap);
-    renderShowdown(snap);
   }
+  renderShowdown(snap);
   updateCountdown(snap);
 }
 
@@ -316,7 +322,7 @@ function renderSeats(snap) {
     for (let v = 0; v < SEATS; v++) el.classList.toggle(`vis-${v}`, v === vis);
     const s = snap.seats[seat];
     const key = s
-      ? `${s.playerId}|${s.chips}|${s.pendingChips}|${s.bet}|${s.folded}|${s.acting}|${(s.holeCards || []).join("")}|${s.isButton}|${s.isSb}|${s.isBb}`
+      ? `${s.playerId}|${s.chips}|${s.pendingChips}|${s.bet}|${s.folded}|${s.acting}|${(s.holeCards || []).join("")}|${s.isButton}|${s.isSb}|${s.isBb}|${s.reaction?.until > Date.now() ? s.reaction.until : ""}`
       : "empty";
     if (el.dataset.key === key) continue;
     el.dataset.key = key;
@@ -342,7 +348,7 @@ function renderSeats(snap) {
     const pending = s.pendingChips ? ` <span class="pending">+${fmtChips(s.pendingChips)}</span>` : "";
     const broke = s.sitting && s.chips === 0 && !s.pendingChips ? " · 待补码" : "";
     el.innerHTML = `
-        <div class="avatar">${s.acting ? '<i class="timer-ring"></i>' : ""}<span class="seat-initial">${escapeHtml(s.nickname.slice(0, 1))}</span><b class="seat-cd"></b>${badges}</div>
+        <div class="avatar" ${s.playerId === snap.me?.id ? 'role="button" tabindex="0" aria-label="选择表情"' : ""}>${s.acting ? '<i class="timer-ring"></i>' : ""}<span class="seat-initial">${escapeHtml(s.nickname.slice(0, 1))}</span><b class="seat-cd"></b>${badges}${s.reaction?.until > Date.now() ? `<span class="emote-bubble">${s.reaction.emoji}</span>` : ""}</div>
         <div class="name">${escapeHtml(s.nickname)}${squid}</div>
         <div class="stack">${fmtChips(s.chips)}${pending}${broke}</div>
         <div class="bet">${s.bet ? chipStackHTML(s.bet) : ""}</div>
@@ -402,7 +408,7 @@ function renderShowdown(snap) {
   }
   box.classList.remove("hidden");
   const hn = snap.lastResult.handNumber;
-  if (state.showdownHand === hn) return;
+  const firstRender = state.showdownHand !== hn;
   state.showdownHand = hn;
   const lr = snap.lastResult;
   const me = snap.me?.id;
@@ -437,16 +443,20 @@ function renderShowdown(snap) {
       return `<div class="sd-row ${win ? "winner" : ""}"><div class="name">${escapeHtml(nameOf(snap, id))}${tag}</div><div class="sd-holes">${holes}</div></div>`;
     })
     .join("");
-  $("sd-win").textContent = lr.winners
+  const resultText = lr.winners
     .filter((w) => w.amount > 0)
     .map((w) => `${nameOf(snap, w.id)} 赢得 ${fmtChips(w.amount)}${w.handName ? " · " + w.handName : ""}`)
     .join("　") || "本手结束";
+  const bounty = snap.events.find((e) => e.type === "bounty");
+  $("sd-win").textContent = `${resultText}${bounty ? `　${nameOf(snap, bounty.playerId)} 获得 27 杂色奖励 ${fmtChips(bounty.amount)}` : ""}`;
   box.classList.remove("hidden");
   const won = Boolean(me && lr.winners.some((w) => w.id === me && w.amount > 0));
   const shown = Boolean(me && lr.shown?.[me]);
   const timedOut = Boolean(me && (lr.timeoutIds || []).includes(me));
-  if (won) play("win");
-  else if (shown || timedOut) play("lose");
+  if (firstRender) {
+    if (won) play("win");
+    else if (shown || timedOut) play("lose");
+  }
 }
 
 function actionMsLeft(snap) {
@@ -514,10 +524,22 @@ function bindRaiseSlider() {
   if (!sl || !lab || !btn) return;
   const paint = () => {
     const n = Number(sl.value);
+    const allIn = n === Number(sl.max);
     lab.textContent = fmtChips(n);
-    btn.textContent = `${btn.dataset.act === "raise" ? "加注" : "下注"} ${fmtChips(n)}`;
+    const amount = btn.querySelector("[data-submit-amount]");
+    const label = btn.querySelector("[data-submit-label]");
+    if (amount && label) {
+      amount.textContent = fmtChips(n);
+      label.textContent = allIn ? "All-in" : btn.dataset.act === "raise" ? "加注" : "下注";
+      btn.setAttribute("aria-label", `${label.textContent} ${fmtChips(n)}`);
+    } else {
+      btn.textContent = `${isPortraitTable() ? "确认" : ""}${btn.dataset.act === "raise" ? "加注至" : "下注"} ${fmtChips(n)}${allIn ? " · All-in" : ""}`;
+    }
   };
-  sl.addEventListener("input", paint);
+  sl.addEventListener("input", () => {
+    document.querySelectorAll("#actions [data-preset]").forEach((button) => button.classList.remove("selected"));
+    paint();
+  });
   paint();
 }
 
@@ -529,6 +551,7 @@ function renderActions(snap) {
     snap.me &&
     snap.seats.some((s) => s && s.playerId === snap.me.id && s.inHand && !s.folded);
   if (vote && meLive) {
+    state.raiseOpen = false;
     const picked = vote.choices?.[snap.me.id];
     box.innerHTML = `<div class="runout-bar">
       <span class="muted">All-in 发几次公共牌？</span>
@@ -539,6 +562,7 @@ function renderActions(snap) {
   }
   const legal = snap.legal;
   if (!legal) {
+    state.raiseOpen = false;
     const extras = [];
     if (snap.me?.holeCards && snap.lastResult && !snap.street && !snap.lastResult.shown?.[snap.me.id]) {
       extras.push(`<button type="button" data-act="show" class="ghost">亮牌</button>`);
@@ -554,24 +578,32 @@ function renderActions(snap) {
     box.innerHTML = extras.join("") || `<span class="muted">${waitText}</span>`;
     return;
   }
-  const parts = [];
-  if (legal.canFold) parts.push(`<button type="button" data-act="fold" class="fold">弃牌</button>`);
-  if (legal.canCheck) parts.push(`<button type="button" data-act="check" class="check">过牌</button>`);
-  if (legal.canCall) parts.push(`<button type="button" data-act="call" class="call">跟注 ${fmtChips(legal.callAmount)}</button>`);
-  if (legal.canBet) {
-    parts.push(
-      `<label class="raise-ctl"><input type="range" id="raise-amt" min="${legal.minBet}" max="${legal.maxRaiseTo}" value="${legal.minBet}" /><output id="raise-val">${fmtChips(legal.minBet)}</output></label>`,
-    );
-    parts.push(`<button type="button" data-act="bet" class="bet">下注 ${fmtChips(legal.minBet)}</button>`);
+  const act = legal.canBet ? "bet" : legal.canRaise ? "raise" : "";
+  const min = legal.canBet ? legal.minBet : legal.minRaiseTo;
+  const mobile = isPortraitTable();
+  const mobileAmountOpen = Boolean(act && mobile && state.raiseOpen);
+  const showAmount = Boolean(act && (!mobile || state.raiseOpen));
+  if (!act) state.raiseOpen = false;
+  const amountControls = showAmount
+    ? `<div class="amount-controls">
+        <div class="raise-presets"><button type="button" data-preset="0.333333">1/3</button><button type="button" data-preset="0.5">1/2</button><button type="button" data-preset="1">满池</button>${legal.canAllIn ? '<button type="button" data-preset="allin">All-in</button>' : ""}</div>
+        <label class="raise-ctl"><input type="range" id="raise-amt" aria-label="下注额" min="${min}" max="${legal.maxRaiseTo}" value="${min}" /><output id="raise-val">${fmtChips(min)}</output></label>
+      </div>`
+    : "";
+  const amount = amountControls && !mobile
+    ? `<div class="amount-panel">${amountControls}<button type="button" data-act="${act}" class="${act} amount-submit"><strong data-submit-amount>${fmtChips(min)}</strong><span data-submit-label>${act === "raise" ? "加注" : "下注"}</span></button></div>`
+    : amountControls;
+  const actions = [];
+  if (mobileAmountOpen) actions.push(`<button type="button" data-close-amount class="ghost">取消</button>`);
+  else {
+    if (legal.canFold) actions.push(`<button type="button" data-act="fold" class="fold">弃牌</button>`);
+    if (legal.canCheck) actions.push(`<button type="button" data-act="check" class="check">过牌</button>`);
+    if (legal.canCall) actions.push(`<button type="button" data-act="call" class="call">跟注 ${fmtChips(legal.callAmount)}</button>`);
   }
-  if (legal.canRaise) {
-    parts.push(
-      `<label class="raise-ctl"><input type="range" id="raise-amt" min="${legal.minRaiseTo}" max="${legal.maxRaiseTo}" value="${legal.minRaiseTo}" /><output id="raise-val">${fmtChips(legal.minRaiseTo)}</output></label>`,
-    );
-    parts.push(`<button type="button" data-act="raise" class="raise">加注 ${fmtChips(legal.minRaiseTo)}</button>`);
-  }
-  if (legal.canAllIn) parts.push(`<button type="button" data-act="allin" class="allin">全下</button>`);
-  box.innerHTML = parts.join("");
+  if (mobile && legal.canBet) actions.push(`<button type="button" data-act="bet" class="bet">${mobileAmountOpen ? "确认下注 " + fmtChips(min) : "下注"}</button>`);
+  else if (mobile && legal.canRaise) actions.push(`<button type="button" data-act="raise" class="raise">${mobileAmountOpen ? "确认加注至 " + fmtChips(min) : "加注"}</button>`);
+  else if (!act && legal.canAllIn) actions.push(`<button type="button" data-act="allin" class="allin">All-in</button>`);
+  box.innerHTML = `${amount}<div class="action-row">${actions.join("")}</div>`;
   bindRaiseSlider();
 }
 
@@ -739,6 +771,7 @@ $("create-form").onsubmit = async (e) => {
     playerId: state.playerId,
     nickname: state.nickname,
     durationMinutes: Number($("duration").value),
+    shortDeck: $("short-deck").checked,
     unlimitedBuyin: $("unlimited").checked,
     maxBuyins: Number($("max-buyins").value || 10),
     straddleAllowed: $("straddle").checked,
@@ -801,7 +834,49 @@ $("buyin-ok").onclick = () => {
 $("btn-stand").onclick = () => void cmd({ type: "stand" });
 
 $("btn-rebuy-top").onclick = () => openBuyin("补码");
+$("emote-picker").innerHTML = EMOJI.map((emoji) => `<button type="button" aria-label="发送 ${emoji}" data-emoji="${emoji}">${emoji}</button>`).join("");
+$("seats").onclick = (e) => {
+  const avatar = e.target.closest(".seat.me .avatar");
+  if (!avatar) return;
+  const picker = $("emote-picker");
+  const rect = avatar.getBoundingClientRect();
+  picker.style.left = `${Math.max(8, Math.min(window.innerWidth - 216, rect.left + rect.width / 2 - 104))}px`;
+  picker.style.top = `${Math.max(8, rect.top - 170)}px`;
+  picker.classList.toggle("hidden");
+};
+$("seats").onkeydown = (e) => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches(".seat.me .avatar")) {
+    e.preventDefault(); e.target.click();
+  }
+};
+$("emote-picker").onclick = (e) => {
+  const button = e.target.closest("button[data-emoji]");
+  if (!button) return;
+  $("emote-picker").classList.add("hidden");
+  void cmd({ type: "emote", emoji: button.dataset.emoji });
+};
 $("actions").onclick = (e) => {
+  const closeAmount = e.target.closest("button[data-close-amount]");
+  if (closeAmount) {
+    state.raiseOpen = false;
+    renderActions(state.snapshot);
+    return;
+  }
+  const preset = e.target.closest("button[data-preset]");
+  if (preset) {
+    const slider = $("raise-amt");
+    const legal = state.snapshot?.legal;
+    if (!slider || !legal) return;
+    if (preset.dataset.preset === "allin") slider.value = slider.max;
+    else {
+      const currentBet = Math.max(0, ...state.snapshot.seats.map((s) => s?.bet ?? 0));
+      const target = currentBet + (state.snapshot.pot + legal.toCall) * Number(preset.dataset.preset);
+      slider.value = String(Math.min(Number(slider.max), Math.max(Number(slider.min), Math.round(target))));
+    }
+    slider.dispatchEvent(new Event("input"));
+    preset.classList.add("selected");
+    return;
+  }
   const runout = e.target.closest("button[data-runout]");
   if (runout) {
     void cmd({ type: "runout", choice: runout.dataset.runout });
@@ -815,6 +890,12 @@ $("actions").onclick = (e) => {
     return;
   }
   const amount = Number($("raise-amt")?.value);
+  if (isPortraitTable() && (act === "bet" || act === "raise") && !state.raiseOpen) {
+    state.raiseOpen = true;
+    renderActions(state.snapshot);
+    return;
+  }
+  state.raiseOpen = false;
   void cmd({ type: "action", action: act, amount: Number.isFinite(amount) ? amount : undefined });
 };
 

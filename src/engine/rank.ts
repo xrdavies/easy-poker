@@ -33,8 +33,9 @@ export interface HandValue {
   cards: Card[];
 }
 
-export function compareHand(a: HandValue, b: HandValue): number {
-  if (a.category !== b.category) return a.category - b.category;
+export function compareHand(a: HandValue, b: HandValue, shortDeck = false): number {
+  const strength = (v: HandValue) => shortDeck && v.category === CATEGORY.flush ? 6.5 : v.category;
+  if (a.category !== b.category) return strength(a) - strength(b);
   const n = Math.max(a.ranks.length, b.ranks.length);
   for (let i = 0; i < n; i++) {
     const d = (a.ranks[i] ?? 0) - (b.ranks[i] ?? 0);
@@ -61,7 +62,7 @@ function combinations(cards: Card[], k: number): Card[][] {
   return out;
 }
 
-function straightHigh(uniqueDesc: number[]): number | null {
+function straightHigh(uniqueDesc: number[], shortDeck: boolean): number | null {
   if (uniqueDesc.length < 5) return null;
   for (let i = 0; i <= uniqueDesc.length - 5; i++) {
     const hi = uniqueDesc[i]!;
@@ -75,19 +76,20 @@ function straightHigh(uniqueDesc: number[]): number | null {
     }
   }
   const set = new Set(uniqueDesc);
-  if (set.has(14) && set.has(5) && set.has(4) && set.has(3) && set.has(2)) {
+  if (shortDeck && [14, 9, 8, 7, 6].every((r) => set.has(r))) return 9;
+  if (!shortDeck && set.has(14) && set.has(5) && set.has(4) && set.has(3) && set.has(2)) {
     return 5;
   }
   return null;
 }
 
-export function evaluate5(cards: Card[]): HandValue {
+export function evaluate5(cards: Card[], shortDeck = false): HandValue {
   if (cards.length !== 5) throw new Error("evaluate5_requires_5");
   const byRank = cards.slice().sort((a, b) => rankValue(b) - rankValue(a));
   const ranks = byRank.map(rankValue);
   const flush = cards.every((c) => suitOf(c) === suitOf(cards[0]!));
   const unique = [...new Set(ranks)];
-  const sHigh = straightHigh(unique);
+  const sHigh = straightHigh(unique, shortDeck);
 
   const counts = new Map<number, number>();
   for (const r of ranks) counts.set(r, (counts.get(r) ?? 0) + 1);
@@ -141,7 +143,7 @@ export function evaluate5(cards: Card[]): HandValue {
   return { category: CATEGORY.highCard, ranks, cards: byRank };
 }
 
-export function evaluateBest(cards: Card[]): HandValue {
+export function evaluateBest(cards: Card[], shortDeck = false): HandValue {
   if (cards.length < 5) {
     const padded = cards.slice();
     return {
@@ -150,17 +152,17 @@ export function evaluateBest(cards: Card[]): HandValue {
       cards: padded,
     };
   }
-  if (cards.length === 5) return evaluate5(cards);
+  if (cards.length === 5) return evaluate5(cards, shortDeck);
   let best: HandValue | null = null;
   for (const five of combinations(cards, 5)) {
-    const v = evaluate5(five);
-    if (!best || compareHand(v, best) > 0) best = v;
+    const v = evaluate5(five, shortDeck);
+    if (!best || compareHand(v, best, shortDeck) > 0) best = v;
   }
   return best!;
 }
 
-export function evaluate7(cards: Card[]): HandValue {
-  return evaluateBest(cards);
+export function evaluate7(cards: Card[], shortDeck = false): HandValue {
+  return evaluateBest(cards, shortDeck);
 }
 
 export function rankName(value: HandValue): string {

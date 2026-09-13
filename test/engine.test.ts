@@ -42,6 +42,46 @@ function open(over: Partial<CreateTableInput> = {}, random: () => number = () =>
   return { table, clk };
 }
 
+describe("short deck", () => {
+  it("defaults to 52 cards; 6+ uses 36 and rejects low cards", () => {
+    assert.equal(open().table.config.shortDeck, false);
+    assert.equal(freshDeck().length, 52);
+    const { table } = open({ shortDeck: true });
+    assert.equal(freshDeck(true).length, 36);
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    assert.throws(() => table.startHand({ deck: parseCards("2c 6d") }), /短牌只能/);
+    table.startHand();
+    assert.equal(table.hand?.deck.length, 32);
+    assert.equal(table.snapshot("a").config.shortDeck, true);
+  });
+
+  it("A-6-7-8-9 is the low straight, and flush beats full house", () => {
+    const low = evaluate7(parseCards("As 6d 7c 8h 9s Kd Qc"));
+    const shortLow = evaluate7(parseCards("As 6d 7c 8h 9s Kd Qc"), true);
+    assert.notEqual(low.category, CATEGORY.straight);
+    assert.equal(shortLow.category, CATEGORY.straight);
+    assert.deepEqual(shortLow.ranks, [9]);
+    assert.notEqual(evaluate7(parseCards("As 2d 3c 4h 5s Kd Qc"), true).category, CATEGORY.straight);
+    const flush = evaluate7(parseCards("As Ks Qs Js 8s 6d 7h"), true);
+    const full = evaluate7(parseCards("Ac Ad Ah Kc Kd 6s 7s"), true);
+    assert.ok(compareHand(flush, full, true) > 0);
+    assert.ok(compareHand(flush, full) < 0);
+  });
+});
+
+describe("table reactions", () => {
+  it("accepts one of the fixed emojis and exposes a temporary bubble", () => {
+    const { table, clk } = open();
+    joinSit(table, "a", "A");
+    table.emote("a", "😂");
+    assert.deepEqual(table.snapshot("b").seats[0]?.reaction?.emoji, "😂");
+    assert.throws(() => table.emote("a", "💣"), /无效表情/);
+    clk.add(4001);
+    assert.equal(table.snapshot("b").seats[0]?.reaction, undefined);
+  });
+});
+
 function joinSit(table: Table, id: string, nick: string, buyins = 1): number {
   table.addPlayer(id, nick, table.password);
   return table.sit(id, buyins);
@@ -716,45 +756,55 @@ describe("straddle / 鱿鱼 / 27杂色", () => {
     assert.ok(mid.events.some((e) => e.type === "squid" && e.playerId === "d" && e.message === "鱿鱼惩罚"));
   });
 
-  it("shown 72o winner is paid 27杂色 bounty; unshown or suited 72 is not", () => {
+  it("auto-reveals and pays 5 BB each only for a postflop uncontested 72o winner", () => {
     const { table } = open({ bounty27Enabled: true });
     joinSit(table, "a", "A");
     joinSit(table, "b", "B");
     joinSit(table, "c", "C");
-    table.startHand({
-      deck: parseCards("9h 8s 7c Td 3c 2d 7h 7s 2s 4c 5d"),
-    });
-    checkCall(table);
-    assert.ok(table.events.some((e) => e.type === "bounty" && e.playerId === "a"));
-    assert.equal(table.players.get("a")!.chips, 208);
-    assert.equal(table.players.get("b")!.chips, 196);
-    assert.equal(table.players.get("c")!.chips, 196);
+    table.startHand({ deck: parseCards("7c 9h 8s 2d Td Jc 3c 4d 5h") });
+    table.action("a", { type: "call" });
+    table.action("b", { type: "call" });
+    table.action("c", { type: "check" });
+    table.action("b", { type: "bet", amount: 2 });
+    table.action("c", { type: "fold" });
+    table.action("a", { type: "fold" });
+    assert.equal(table.lastResult?.uncontested, true);
+    assert.equal(table.lastResult?.board.length, 3);
+    assert.ok(table.lastResult?.shown.b);
+    assert.ok(table.events.some((e) => e.type === "bounty" && e.playerId === "b" && e.amount === 20));
+    assert.deepEqual(["a", "b", "c"].map((id) => table.players.get(id)!.chips), [188, 224, 188]);
+    const snapshot = table.snapshot("a");
+    assert.ok(snapshot.lastResult?.shown.b);
+    assert.ok(snapshot.events.some((e) => e.type === "bounty" && e.amount === 20));
+    table.showCards("b");
+    assert.equal(table.players.get("b")!.chips, 224);
+
+    const { table: showdown } = open({ tableNumber: "SHOW72", bounty27Enabled: true });
+    joinSit(showdown, "a", "A");
+    joinSit(showdown, "b", "B");
+    showdown.startHand({ deck: parseCards("9h 7c 8s 2d 3c Td 7h 7s 2s 4c 5d") });
+    checkCall(showdown);
+    showdown.showCards("b");
+    assert.equal(showdown.events.some((e) => e.type === "bounty"), false);
+
+    const { table: preflop } = open({ tableNumber: "PREF72", bounty27Enabled: true });
+    joinSit(preflop, "a", "A");
+    joinSit(preflop, "b", "B");
+    preflop.startHand({ deck: parseCards("9h 7c 8s 2d 3c Td 7h 7s 2s") });
+    preflop.action("a", { type: "fold" });
+    preflop.showCards("b");
+    assert.equal(preflop.events.some((e) => e.type === "bounty"), false);
 
     const { table: suited } = open({ tableNumber: "SUITED", bounty27Enabled: true });
     joinSit(suited, "a", "A");
     joinSit(suited, "b", "B");
-    suited.startHand({
-      deck: parseCards("7c 9h 2c 8s 3d Td 7h 7s 4c 5d 6h"),
-    });
-    checkCall(suited);
-    assert.equal(
-      suited.events.some((e) => e.type === "bounty"),
-      false,
-    );
-
-    const { table: hide } = open({ tableNumber: "HIDDEN", bounty27Enabled: true });
-    joinSit(hide, "a", "A");
-    joinSit(hide, "b", "B");
-    hide.startHand({
-      deck: parseCards("9h 7c 8s 2d 3c Td 7h 7s 2s 4c 5d"),
-    });
-    hide.action("a", { type: "fold" });
-    assert.equal(
-      hide.events.some((e) => e.type === "bounty"),
-      false,
-    );
-    hide.showCards("b");
-    assert.ok(hide.events.some((e) => e.type === "bounty" && e.playerId === "b"));
+    suited.startHand({ deck: parseCards("9h 7c 8s 2c 3d Td 7h 7s 4d") });
+    suited.action("a", { type: "call" });
+    suited.action("b", { type: "check" });
+    suited.action("b", { type: "bet", amount: 2 });
+    suited.action("a", { type: "fold" });
+    suited.showCards("b");
+    assert.equal(suited.events.some((e) => e.type === "bounty"), false);
   });
 
   it("defaults remain straddle off, squid off, 27 on", () => {

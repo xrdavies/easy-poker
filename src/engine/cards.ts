@@ -43,10 +43,11 @@ export function parseCards(text: string): Card[] {
     .map(parseCard);
 }
 
-export function freshDeck(): Card[] {
+export function freshDeck(shortDeck = false): Card[] {
   const cards: Card[] = [];
   for (const s of SUITS) {
     for (const r of RANK_CHARS) {
+      if (shortDeck && rankValue(`${r}${s}`) < 6) continue;
       cards.push(`${r}${s}` as Card);
     }
   }

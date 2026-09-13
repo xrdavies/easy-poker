@@ -44,6 +44,7 @@ export interface TableJSON {
   bountyPaid: string[];
   nextHandAt: number | null;
   runoutVote: RunoutVote | null;
+  reactions?: Record<string, { emoji: string; until: number }>;
 }
 
 export interface LastResult {
@@ -75,6 +76,7 @@ export interface SeatView {
   acting: boolean;
   inHand: boolean;
   pendingChips: number;
+  reaction?: { emoji: string; until: number };
 }
 
 export interface ClientSnapshot {
@@ -116,6 +118,8 @@ export interface ClientSnapshot {
   invitePath: string;
   runoutVote: RunoutVote | null;
 }
+
+export const EMOJI = ["😡", "😤", "😫", "😄", "😂", "🥳", "😅", "🙃", "😏", "😜", "🤔", "😭"] as const;
 
 export interface StartHandOpts {
   deck?: Card[];
@@ -173,6 +177,7 @@ export class Table {
   nextHandAt: number | null = null;
   bountyPaid = new Set<string>();
   runoutVote: RunoutVote | null = null;
+  reactions: Record<string, { emoji: string; until: number }> = {};
   lastTimeoutIds: string[] = [];
   now: () => number;
   random: () => number;
@@ -235,6 +240,7 @@ export class Table {
     t.runoutVote = data.runoutVote
       ? { deadline: data.runoutVote.deadline, choices: { ...data.runoutVote.choices } }
       : null;
+    t.reactions = data.reactions ?? {};
     t.lastTimeoutIds = [];
     return t;
   }
@@ -272,6 +278,7 @@ export class Table {
       nextHandAt: this.nextHandAt,
       bountyPaid: [...this.bountyPaid],
       runoutVote: this.runoutVote ? { deadline: this.runoutVote.deadline, choices: { ...this.runoutVote.choices } } : null,
+      reactions: this.reactions,
     };
   }
 
@@ -365,12 +372,18 @@ export class Table {
     this.requirePlayer(playerId).autoStraddle = on;
   }
 
+  emote(playerId: string, emoji: string): void {
+    const p = this.requirePlayer(playerId);
+    if (!p.sitting) throw new PokerError("not_seated", "坐下后才能发表情");
+    if (!EMOJI.includes(emoji as typeof EMOJI[number])) throw new PokerError("invalid_emote", "无效表情");
+    this.reactions[playerId] = { emoji, until: this.now() + 4000 };
+  }
+
   showCards(playerId: string): void {
     const p = this.requirePlayer(playerId);
     if (!p.holeCards) throw new PokerError("no_cards", "没有手牌可展示");
     p.shown = true;
     if (this.lastResult) this.lastResult.shown[p.id] = p.holeCards.slice();
-    this.maybePayBounty(p, this.potWinnersThisHand(p.id));
   }
 
   startHand(opts: StartHandOpts = {}): void {
@@ -411,9 +424,12 @@ export class Table {
       p.inHand = true;
     }
 
-    const deck = opts.deck ? opts.deck.slice() : shuffle(freshDeck(), this.random);
+    const deck = opts.deck ? opts.deck.slice() : shuffle(freshDeck(this.config.shortDeck), this.random);
     if (new Set(deck).size !== deck.length) throw new PokerError("invalid_deck", "牌组有重复");
-    if (!opts.deck && deck.length !== 52) throw new PokerError("invalid_deck", "必须使用 52 张长牌");
+    if (this.config.shortDeck && deck.some((card) => "2345".includes(card[0]!))) {
+      throw new PokerError("invalid_deck", "短牌只能使用 6 到 A");
+    }
+    if (!opts.deck && deck.length !== (this.config.shortDeck ? 36 : 52)) throw new PokerError("invalid_deck", "牌组数量错误");
 
     this.hand = {
       handNumber: this.nextHandNumber++,
@@ -568,6 +584,7 @@ export class Table {
         acting: hand?.actingPlayerId === p.id,
         inHand: p.inHand,
         pendingChips: p.pendingBuyinChips ?? 0,
+        reaction: this.reactions[p.id]?.until > this.now() ? this.reactions[p.id] : undefined,
       };
     });
     const spectators = [...this.players.values()]
@@ -1124,7 +1141,6 @@ export class Table {
     if (winner) {
       this.events.push({ type: "win", playerId: winner.id, amount: awards.get(winner.id) ?? 0 });
       this.applySquid(winner.id);
-      if (winner.shown) this.maybePayBounty(winner, true);
     }
     this.finishHand(awards, potTotal, false);
   }
@@ -1153,7 +1169,7 @@ export class Table {
       const board = runBoards[ri]!;
       const values = new Map<string, HandValue>();
       for (const p of live) {
-        values.set(p.id, evaluateBest([...(p.holeCards ?? []), ...board]));
+        values.set(p.id, evaluateBest([...(p.holeCards ?? []), ...board], this.config.shortDeck));
       }
       lastValues = values;
       const runAwards = new Map<string, number>();
@@ -1167,9 +1183,9 @@ export class Table {
         let best = values.get(contenders[0]!)!;
         for (const id of contenders) {
           const v = values.get(id)!;
-          if (compareHand(v, best) > 0) best = v;
+          if (compareHand(v, best, this.config.shortDeck) > 0) best = v;
         }
-        const winners = contenders.filter((id) => compareHand(values.get(id)!, best) === 0);
+        const winners = contenders.filter((id) => compareHand(values.get(id)!, best, this.config.shortDeck) === 0);
         const split = splitOddChips(amt, winners, order);
         for (const [id, a] of split) {
           runAwards.set(id, (runAwards.get(id) ?? 0) + a);
@@ -1200,9 +1216,6 @@ export class Table {
     }
     if (runBoards.length === 1 && mainAwardedTo.size === 1) {
       this.applySquid([...mainAwardedTo][0]!);
-    }
-    for (const p of live) {
-      if (p.shown && (combined.get(p.id) ?? 0) > 0) this.maybePayBounty(p, true);
     }
     this.finishHand(combined, potTotal, true, lastValues, runs);
   }
@@ -1239,18 +1252,20 @@ export class Table {
     return this.lastResult?.winners.some((w) => w.id === playerId && w.amount > 0) === true;
   }
 
-  private maybePayBounty(p: PlayerState, wonPot: boolean): void {
+  private maybePayBounty(p: PlayerState): void {
     if (!this.config.bounty27Enabled) return;
-    if (!wonPot) return;
-    if (!p.shown) return;
+    if (!this.lastResult?.uncontested || this.lastResult.board.length < 3) return;
+    if (!this.potWinnersThisHand(p.id)) return;
     if (this.bountyPaid.has(p.id)) return;
     if (!isSevenDeuceOffsuit(p.holeCards)) return;
+    p.shown = true;
+    this.lastResult.shown[p.id] = p.holeCards!.slice();
     this.bountyPaid.add(p.id);
-    const bb = this.config.bigBlind;
+    const bounty = this.config.bigBlind * 5;
     const others = this.seated().filter((o) => o.id !== p.id);
     let total = 0;
     for (const o of others) {
-      const pay = Math.min(o.chips, bb);
+      const pay = Math.min(o.chips, bounty);
       o.chips -= pay;
       p.chips += pay;
       total += pay;
@@ -1364,6 +1379,12 @@ export class Table {
       timeoutIds: this.lastTimeoutIds.slice(),
       runs: runList,
     };
+    if (!revealed) {
+      for (const winner of winners) {
+        const p = this.players.get(winner.id);
+        if (p) this.maybePayBounty(p);
+      }
+    }
     this.lastTimeoutIds = [];
     this.runoutVote = null;
     this.events.push({ type: "settle" });

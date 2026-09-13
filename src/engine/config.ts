@@ -22,6 +22,7 @@ export function normalizeConfig(input: CreateTableInput): TableConfig {
   }
   return {
     durationMinutes: input.durationMinutes as DurationMinutes,
+    shortDeck: input.shortDeck === true,
     unlimitedBuyin,
     maxBuyins,
     straddleAllowed: input.straddleAllowed === true,
