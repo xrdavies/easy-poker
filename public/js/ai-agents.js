@@ -132,6 +132,7 @@ export class BrowserAiAgents {
       name: input.name.trim(),
       baseUrl,
       model: input.model.trim(),
+      useProxy: Boolean(input.useProxy),
       apiKeyCiphertext: secret.apiKeyCiphertext,
       iv: secret.iv,
       apiKey: input.apiKey || existing.apiKey,
@@ -342,7 +343,8 @@ export class BrowserAiAgents {
     let modelError = false;
     try {
       if (!profile?.apiKey) throw new Error("模型配置无法解密");
-      move = await decide(snapshot, runtime.bot.level, profile, runtime.abortController.signal);
+      const config = profile.useProxy ? { ...profile, proxyOrigin: await this.getApiOrigin() } : profile;
+      move = await decide(snapshot, runtime.bot.level, config, runtime.abortController.signal);
     } catch (err) {
       if (runtime.stopped || err.name === "AbortError") return;
       modelError = true;

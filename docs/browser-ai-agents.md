@@ -65,6 +65,7 @@ AI 详情仅显示：
   name: "DeepSeek",
   baseUrl: "https://api.example.com/v1",
   model: "deepseek-chat",
+  useProxy: false,
   apiKeyCiphertext: "...",
   iv: "..."
 }
@@ -186,7 +187,8 @@ AI 本身仍使用现有桌号和密码加入，游戏服务器将其视为普�
 - 模型服务必须允许浏览器跨域请求；CORS、认证或模型配置错误会在 AI 基础状态中显示为“连接异常”。
 - 浏览器刷新期间恰好轮到 AI 时，AI 仍可能超时。
 - 后台标签页可能被浏览器限速；本功能只保证房主页面正常打开时运行。
-- Base URL 只发送到房主选择的模型服务，不经过游戏服务器。
+- 直连模式下 Base URL 和 API Key 只发送到房主选择的模型服务；代理模式下请求会经过游戏 Worker，但不会被保存。
+- 模型配置可选择通过游戏 Worker 代理，以兼容不支持浏览器 CORS 的服务。代理不保存 API Key，不限制目标域名，但只接受 HTTPS Responses/Chat Completions 端点；公开运营前需要增加鉴权或限流。
 
 ## 代码落点
 

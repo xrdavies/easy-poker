@@ -868,7 +868,7 @@ function renderAiList() {
 function renderAiProfiles() {
   const profiles = aiAgents.getProfiles();
   $("ai-profile-list").innerHTML = profiles.length
-    ? profiles.map((profile) => `<div class="ai-item"><div class="ai-item-title"><strong>${escapeHtml(profile.name)}</strong><span>${escapeHtml(profile.model)} · ${escapeHtml(profile.keyLabel)}</span></div><div class="ai-item-actions"><button type="button" class="ghost sm" data-profile-edit="${escapeHtml(profile.id)}">编辑</button><button type="button" class="ghost sm danger" data-profile-remove="${escapeHtml(profile.id)}">删除</button></div></div>`).join("")
+    ? profiles.map((profile) => `<div class="ai-item"><div class="ai-item-title"><strong>${escapeHtml(profile.name)}</strong><span>${escapeHtml(profile.model)} · ${escapeHtml(profile.keyLabel)}${profile.useProxy ? " · 游戏代理" : ""}</span></div><div class="ai-item-actions"><button type="button" class="ghost sm" data-profile-edit="${escapeHtml(profile.id)}">编辑</button><button type="button" class="ghost sm danger" data-profile-remove="${escapeHtml(profile.id)}">删除</button></div></div>`).join("")
     : '<div class="ai-empty">还没有模型配置</div>';
 }
 
@@ -892,6 +892,7 @@ function openProfileForm(profileId = "") {
   $("ai-profile-name").value = profile?.name ?? "";
   $("ai-base-url").value = profile?.baseUrl ?? "";
   $("ai-model").value = profile?.model ?? "";
+  $("ai-use-proxy").checked = Boolean(profile?.useProxy);
   $("ai-api-key").required = !profile;
   showAiView("ai-profile-form", profile ? `编辑 ${profile.keyLabel}` : "添加模型配置");
 }
@@ -918,7 +919,7 @@ $("ai-bot-form").onsubmit = (event) => {
 $("ai-profile-form").onsubmit = async (event) => {
   event.preventDefault();
   try {
-    await aiAgents.saveProfile({ id: $("ai-profile-id").value, name: $("ai-profile-name").value, apiKey: $("ai-api-key").value, baseUrl: $("ai-base-url").value, model: $("ai-model").value });
+    await aiAgents.saveProfile({ id: $("ai-profile-id").value, name: $("ai-profile-name").value, apiKey: $("ai-api-key").value, baseUrl: $("ai-base-url").value, model: $("ai-model").value, useProxy: $("ai-use-proxy").checked });
     renderAiProfiles();
     showAiView("ai-profiles-view", "模型配置");
   } catch (err) { toast(err.message); }

@@ -23,6 +23,9 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const { randomNickname } = await import("./engine/names.ts");
     return Response.json({ nickname: randomNickname() });
   }
+  if (url.pathname === "/api/model-proxy" && request.method === "POST") {
+    return modelProxy(request);
+  }
   if (url.pathname === "/api/tables" && request.method === "POST") {
     return createTable(request, env);
   }
@@ -52,10 +55,42 @@ function corsHeaders(request: Request): HeadersInit {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "content-type",
+    "Access-Control-Allow-Headers": "content-type, authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
+}
+
+export function modelProxyUrl(value: unknown): URL {
+  const url = new URL(String(value ?? ""));
+  if (url.protocol !== "https:" || !/\/(responses|chat\/completions)\/?$/.test(url.pathname)) {
+    throw new Error("模型代理只支持 HTTPS Responses 或 Chat Completions 端点");
+  }
+  return url;
+}
+
+async function modelProxy(request: Request): Promise<Response> {
+  const authorization = request.headers.get("authorization") ?? "";
+  if (!/^Bearer\s+\S+$/i.test(authorization)) return Response.json({ error: "missing_api_key" }, { status: 401 });
+  try {
+    const payload = await request.json<{ url?: unknown; body?: unknown }>();
+    const url = modelProxyUrl(payload.url);
+    if (!payload.body || typeof payload.body !== "object") throw new Error("模型请求内容无效");
+    // ponytail: arbitrary HTTPS model hosts are intentional for private use; add auth/rate limits before public exposure.
+    const upstream = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization },
+      body: JSON.stringify(payload.body),
+      redirect: "error",
+      signal: request.signal,
+    });
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: { "content-type": upstream.headers.get("content-type") ?? "application/json" },
+    });
+  } catch (err) {
+    return Response.json({ error: "model_proxy_error", message: (err as Error).message }, { status: 400 });
+  }
 }
 
 function withCors(request: Request, res: Response): Response {

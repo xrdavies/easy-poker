@@ -187,7 +187,8 @@
           <label class="field"><span>API Key</span><input id="ai-api-key" type="password" autocomplete="off" placeholder="编辑时留空表示不修改" /></label>
           <label class="field"><span>Base URL</span><input id="ai-base-url" type="url" required placeholder="https://api.example.com/v1" /></label>
           <label class="field"><span>Model</span><input id="ai-model" required placeholder="例如 deepseek-chat" /></label>
-          <p class="muted ai-storage-note">API Key 加密保存在当前浏览器，不会发送给游戏服务器。</p>
+          <label class="check"><input id="ai-use-proxy" type="checkbox" /> 通过游戏代理访问模型 API</label>
+          <p class="muted ai-storage-note">API Key 加密保存在当前浏览器；启用代理时仅随模型请求经过游戏 Worker，不会被保存。</p>
           <div class="ai-footer-actions"><button type="submit" class="primary">保存配置</button><button type="button" id="ai-profile-cancel" class="ghost">返回</button></div>
         </form>
       </div>

@@ -28,11 +28,17 @@ export function gameWsUrl(base, tableNumber, playerId) {
   return url.toString();
 }
 
-async function request(url, body, key, signal) {
-  const res = await fetch(url, {
+export function modelTransport(url, body, config) {
+  if (!config.useProxy) return { url, body };
+  return { url: `${config.proxyOrigin.replace(/\/$/, "")}/api/model-proxy`, body: { url, body } };
+}
+
+async function request(url, body, config, signal) {
+  const transport = modelTransport(url, body, config);
+  const res = await fetch(transport.url, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-    body: JSON.stringify(body),
+    headers: { "content-type": "application/json", authorization: `Bearer ${config.apiKey}` },
+    body: JSON.stringify(transport.body),
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000),
   });
   const text = await res.text();
@@ -58,11 +64,11 @@ export async function decide(snapshot, level, config, signal) {
   const instruction = `${PROMPTS[level]}只依据可见信息决策。只输出 JSON，例如 {"action":"call"} 或 {"action":"raise","amount":10}。amount 是本轮总下注额，必须遵循 legal。`;
   let result;
   try {
-    const data = await request(apiUrl(baseUrl, "responses"), { model, instructions: instruction, input: [{ role: "user", content: input }] }, apiKey, signal);
+    const data = await request(apiUrl(baseUrl, "responses"), { model, instructions: instruction, input: [{ role: "user", content: input }] }, config, signal);
     result = data.output_text ?? data.output?.flatMap((o) => o.content ?? []).filter((c) => c.type === "output_text").map((c) => c.text).join("");
   } catch (err) {
     if (![400, 404, 405, 501].includes(err.status)) throw err;
-    const data = await request(apiUrl(baseUrl, "chat/completions"), { model, messages: [{ role: "system", content: instruction }, { role: "user", content: input }] }, apiKey, signal);
+    const data = await request(apiUrl(baseUrl, "chat/completions"), { model, messages: [{ role: "system", content: instruction }, { role: "user", content: input }] }, config, signal);
     result = data.choices?.[0]?.message?.content;
   }
   return legalMove(result, snapshot.legal);

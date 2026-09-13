@@ -70,6 +70,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(html, /id="btn-leave"/);
     assert.match(html, /id="btn-ai"[^>]*desktop-only[\s\S]*id="btn-ai-label">AI玩家/);
     assert.match(html, /id="ai-modal"/);
+    assert.match(html, /id="ai-use-proxy"/);
     assert.match(html, /icon-btn/);
     assert.match(js, /clipboard\.writeText/);
     assert.match(js, /inviteUrl/);
@@ -129,6 +130,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(manager, /type:\s*"sit"/);
     assert.match(manager, /type:\s*"stand"/);
     assert.match(manager, /type:\s*"action"/);
+    assert.match(manager, /proxyOrigin:\s*await this\.getApiOrigin\(\)/);
     assert.match(core, /export async function decide/);
     assert.doesNotMatch(cli, /agent-core|ai-agents/);
   });
@@ -149,6 +151,7 @@ describe("client UI source (shipped public assets)", () => {
     const tableDo = read("../src/table-do.ts");
     assert.match(tableDo, /ws\.send\(JSON\.stringify\(\{ type: "state", snapshot \}\)\)/);
     assert.match(index, /\/api\/tables/);
+    assert.match(index, /\/api\/model-proxy/);
     const web = read("../src/web.ts");
     assert.match(web, /ASSETS\.fetch/);
     assert.match(web, /config\.json/);
