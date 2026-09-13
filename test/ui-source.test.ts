@@ -72,6 +72,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(html, /id="btn-ai"[^>]*desktop-only[\s\S]*id="btn-ai-label">AI玩家/);
     assert.match(html, /id="ai-modal"/);
     assert.match(html, /id="ai-use-proxy"/);
+    assert.match(html, /id="ai-api-key" type="text"/);
     assert.match(html, /id="confirm-modal"/);
     assert.match(html, /icon-btn/);
     assert.match(js, /clipboard\.writeText/);
