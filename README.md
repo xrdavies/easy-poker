@@ -50,6 +50,8 @@ node scripts/agent.mjs --create --web '<游戏前端地址>' --api '<游戏 API 
 
 Agent 优先通过游戏 WebSocket 接收状态，断线时自动回退到轮询。
 
+计划中的 Desktop 浏览器端多 AI 管理方案见 [docs/browser-ai-agents.md](docs/browser-ai-agents.md)。
+
 ## 测试
 
 ```bash
