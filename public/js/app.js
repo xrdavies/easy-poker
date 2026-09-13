@@ -365,6 +365,7 @@ function queueDeals(snap) {
   const holes = snap.me?.holeCards ?? [];
   const board = snap.board ?? [];
   const hn = snap.handNumber;
+  const handEnded = Boolean(snap.lastResult && !snap.street);
   if (hn !== state.dealHand || board.length < state.shownBoard.length) {
     if (hn !== state.dealHand && (holes.length || board.length)) play("shuffle");
     state.dealHand = hn;
@@ -374,8 +375,14 @@ function queueDeals(snap) {
     $("hole").innerHTML = "";
     $("board").innerHTML = "";
   }
-  for (let i = state.shownHoles.length + queuedCount("hole"); i < holes.length; i++) {
-    state.dealQueue.push({ where: "hole", card: holes[i] });
+  if (handEnded) {
+    state.dealQueue = state.dealQueue.filter((item) => item.where !== "hole");
+    state.shownHoles = holes.slice();
+    $("hole").innerHTML = "";
+  } else {
+    for (let i = state.shownHoles.length + queuedCount("hole"); i < holes.length; i++) {
+      state.dealQueue.push({ where: "hole", card: holes[i] });
+    }
   }
   for (let i = state.shownBoard.length + queuedCount("board"); i < board.length; i++) {
     state.dealQueue.push({ where: "board", card: board[i] });
