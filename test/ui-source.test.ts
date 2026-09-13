@@ -55,6 +55,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /height:\s*min\(100%,\s*calc\(96vw \* 1\.65\)\)/);
     assert.match(css, /@media \(min-width:\s*821px\)[\s\S]*\.hole\s*\{[^}]*left:\s*50%[^}]*transform:\s*translate\(-50%,\s*-20px\)[^}]*\}[\s\S]*\.actions\s*\{[^}]*left:\s*calc\(50% \+ 82px\)/);
     assert.match(css, /@media \(min-width:\s*821px\)[\s\S]*\.amount-submit\s*\{[^}]*height:\s*52px[^}]*\}[\s\S]*\.action-row button\s*\{[^}]*height:\s*38px[^}]*\}[\s\S]*\.raise-presets button\s*\{[^}]*height:\s*26px[^}]*\}[\s\S]*\.raise-ctl\s*\{[^}]*height:\s*24px[^}]*\}/);
+    assert.match(css, /max-height:\s*720px[\s\S]*\.table-wrap\s*\{[^}]*padding-bottom:\s*112px/);
     const html = read("../public/index.html");
     assert.match(html, /id="table-rules"/);
     assert.match(html, /<footer class="dock">[\s\S]*id="showdown"/);
