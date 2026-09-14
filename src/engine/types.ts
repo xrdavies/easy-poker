@@ -61,6 +61,7 @@ export interface PlayerState {
   autoStraddle: boolean;
   pendingBuyinChips: number;
   timeoutStreak: number;
+  lastEmoteAt: number | null;
 }
 
 export interface RunoutVote {
@@ -132,11 +133,15 @@ export interface GameEvent {
     | "timeout"
     | "win"
     | "bounty"
-    | "squid";
+    | "squid"
+    | "emote";
   playerId?: string;
   recipientIds?: string[];
   amount?: number;
   message?: string;
+  emoji?: string;
+  variant?: number;
+  at?: number;
 }
 
 export interface LegalActions {

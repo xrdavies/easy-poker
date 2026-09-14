@@ -12,7 +12,8 @@
     "deploy:api": "wrangler deploy --config wrangler.toml",
     "deploy:web": "wrangler deploy --config wrangler.web.toml",
     "test": "node --experimental-strip-types --test test/*.test.ts test/*.test.mjs",
-    "sounds": "node scripts/generate-sounds.mjs"
+    "sounds": "node scripts/generate-sounds.mjs",
+    "voices": "node scripts/generate-emote-voices.mjs"
   },
   "engines": {
     "node": ">=22"

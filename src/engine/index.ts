@@ -1,5 +1,6 @@
 export {
   ACTION_MS,
+  EMOTE_COOLDOWN_MS,
   CATEGORY,
   compareHand,
   createTable,

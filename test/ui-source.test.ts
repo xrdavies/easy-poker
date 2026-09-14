@@ -192,6 +192,11 @@ describe("client UI source (shipped public assets)", () => {
       assert.equal(existsSync(fileURLToPath(url(`../public/sounds/${name}.m4a`))), true);
     }
     const js = read("../public/js/app.js");
+    for (const key of ["angry", "defiant", "weary", "smile", "laugh", "celebrate", "relief", "awkward", "smirk", "playful", "think", "cry"]) {
+      for (let variant = 1; variant <= 3; variant++) {
+        assert.equal(existsSync(fileURLToPath(url(`../public/sounds/emote-${key}-${variant}.m4a`))), true);
+      }
+    }
     assert.match(js, /e\.type === "fold"/);
     assert.match(js, /once\("fold"\)/);
     assert.match(js, /once\("check"\)/);
@@ -208,6 +213,9 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(js, /cloneNode/);
     assert.match(js, /document\.addEventListener\("pointerdown", unlockAudio/);
     assert.match(js, /JSON\.stringify\(\[snap\.handNumber, snap\.street, events\]\)/);
+    assert.match(js, /EMOTE_VOICE/);
+    assert.match(js, /e\.type === "emote"/);
+    assert.match(js, /emote-\$\{EMOTE_VOICE\[e\.emoji\]\}-\$\{e\.variant\}/);
     assert.match(js, /raise-val/);
     assert.match(js, /data-runout/);
     assert.match(js, /actionLock/);

@@ -6,6 +6,7 @@ import {
   CATEGORY,
   compareHand,
   createTable,
+  EMOTE_COOLDOWN_MS,
   evaluate7,
   freshDeck,
   HAND_PAUSE_MS,
@@ -71,14 +72,18 @@ describe("short deck", () => {
 });
 
 describe("table reactions", () => {
-  it("accepts one of the fixed emojis and exposes a temporary bubble", () => {
+  it("broadcasts a voice variant and enforces a 30-second cooldown", () => {
     const { table, clk } = open();
     joinSit(table, "a", "A");
     table.emote("a", "😂");
     assert.deepEqual(table.snapshot("b").seats[0]?.reaction?.emoji, "😂");
+    assert.ok(table.events.some((e) => e.type === "emote" && e.emoji === "😂" && e.variant === 1));
     assert.throws(() => table.emote("a", "💣"), /无效表情/);
+    assert.throws(() => table.emote("a", "😂"), /表情冷却中，还需 30 秒/);
     clk.add(4001);
     assert.equal(table.snapshot("b").seats[0]?.reaction, undefined);
+    clk.add(EMOTE_COOLDOWN_MS - 4001);
+    table.emote("a", "😂");
   });
 });
 

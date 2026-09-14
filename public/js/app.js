@@ -70,12 +70,31 @@ const SFX_POOL = {
   lose: ["lose"],
 };
 
+const EMOTE_VOICE = {
+  "😡": "angry",
+  "😤": "defiant",
+  "😫": "weary",
+  "😄": "smile",
+  "😂": "laugh",
+  "🥳": "celebrate",
+  "😅": "relief",
+  "🙃": "awkward",
+  "😏": "smirk",
+  "😜": "playful",
+  "🤔": "think",
+  "😭": "cry",
+};
+const EMOTE_AUDIO = new Audio("/sounds/emote-angry-1.m4a");
+EMOTE_AUDIO.preload = "auto";
+
 function play(name) {
   const pool = SFX_POOL[name] || [name];
   const pick = pool[Math.floor(Math.random() * pool.length)];
-  const el = $(`sfx-${pick}`);
+  const voice = pick.startsWith("emote-");
+  const el = voice ? EMOTE_AUDIO : $(`sfx-${pick}`);
   if (!el) return;
   try {
+    if (voice) el.src = `/sounds/${pick}.m4a`;
     el.currentTime = 0;
     void el.play().catch(() => {});
   } catch {
@@ -84,7 +103,7 @@ function play(name) {
 }
 
 async function unlockAudio() {
-  await Promise.all([...document.querySelectorAll("audio")].map(async (el) => {
+  await Promise.all([...document.querySelectorAll("audio"), EMOTE_AUDIO].map(async (el) => {
     try {
       el.muted = true;
       await el.play();
@@ -291,6 +310,9 @@ function playEvents(snap) {
     else if (e.type === "check") once("check");
     else if (e.type === "call" || e.type === "bet" || e.type === "raise") play("bet");
     else if (e.type === "allin") once("allin");
+    else if (e.type === "emote" && EMOTE_VOICE[e.emoji] && e.variant) {
+      play(`emote-${EMOTE_VOICE[e.emoji]}-${e.variant}`);
+    }
   }
 }
 

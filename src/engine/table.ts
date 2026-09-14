@@ -27,6 +27,7 @@ import {
 } from "./types.ts";
 
 const MAX_TIMEOUT_STREAK = 3;
+export const EMOTE_COOLDOWN_MS = 30_000;
 
 export interface TableJSON {
   tableNumber: string;
@@ -161,6 +162,7 @@ function emptyPlayer(id: string, nickname: string): PlayerState {
     autoStraddle: false,
     pendingBuyinChips: 0,
     timeoutStreak: 0,
+    lastEmoteAt: null,
   };
 }
 
@@ -212,6 +214,7 @@ export class Table {
           holeCards: p.holeCards ? p.holeCards.slice() : null,
           pendingBuyinChips: p.pendingBuyinChips ?? 0,
           timeoutStreak: p.timeoutStreak ?? 0,
+          lastEmoteAt: p.lastEmoteAt ?? null,
         },
       ]),
     );
@@ -394,7 +397,14 @@ export class Table {
     const p = this.requirePlayer(playerId);
     if (!p.sitting) throw new PokerError("not_seated", "坐下后才能发表情");
     if (!EMOJI.includes(emoji as typeof EMOJI[number])) throw new PokerError("invalid_emote", "无效表情");
-    this.reactions[playerId] = { emoji, until: this.now() + 4000 };
+    const now = this.now();
+    if (p.lastEmoteAt !== null && now - p.lastEmoteAt < EMOTE_COOLDOWN_MS) {
+      const seconds = Math.ceil((EMOTE_COOLDOWN_MS - (now - p.lastEmoteAt)) / 1000);
+      throw new PokerError("emote_cooldown", `表情冷却中，还需 ${seconds} 秒`);
+    }
+    p.lastEmoteAt = now;
+    this.reactions[playerId] = { emoji, until: now + 4000 };
+    this.events = [{ type: "emote", playerId, emoji, variant: 1 + Math.floor(this.random() * 3), at: now }];
   }
 
   showCards(playerId: string): void {
