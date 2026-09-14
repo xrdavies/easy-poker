@@ -76,13 +76,29 @@ function play(name) {
   const el = $(`sfx-${pick}`);
   if (!el) return;
   try {
-    const node = el.cloneNode(true);
-    node.currentTime = 0;
-    void node.play().catch(() => {});
+    el.currentTime = 0;
+    void el.play().catch(() => {});
   } catch {
     /* autoplay may block until a gesture */
   }
 }
+
+async function unlockAudio() {
+  await Promise.all([...document.querySelectorAll("audio")].map(async (el) => {
+    try {
+      el.muted = true;
+      await el.play();
+      el.pause();
+      el.currentTime = 0;
+    } catch {
+      /* browser kept autoplay blocked */
+    } finally {
+      el.muted = false;
+    }
+  }));
+}
+
+document.addEventListener("pointerdown", unlockAudio, { once: true });
 
 function cardHTML(card, extra = "") {
   if (!card) return `<div class="card back ${extra}"></div>`;
@@ -245,7 +261,7 @@ function applySnapshot(snap) {
   saveTableSession();
   if (snap.status === "finished") {
     showSettle(snap);
-    playEvents(snap.events);
+    playEvents(snap);
     return;
   }
   $("gate").classList.add("hidden");
@@ -255,11 +271,12 @@ function applySnapshot(snap) {
   clearTimeout(state.emoteTimer);
   const nextExpiry = Math.min(...snap.seats.map((s) => s?.reaction?.until ?? Infinity));
   if (Number.isFinite(nextExpiry)) state.emoteTimer = setTimeout(() => renderTable(state.snapshot), Math.max(0, nextExpiry - Date.now() + 25));
-  playEvents(snap.events);
+  playEvents(snap);
 }
 
-function playEvents(events = []) {
-  const key = JSON.stringify(events);
+function playEvents(snap) {
+  const events = snap.events ?? [];
+  const key = JSON.stringify([snap.handNumber, snap.street, events]);
   if (key === state.lastEvents) return;
   state.lastEvents = key;
   if (!events.length) return;
@@ -406,6 +423,8 @@ function queueDeals(snap) {
   const board = snap.board ?? [];
   const hn = snap.handNumber;
   const handEnded = Boolean(snap.lastResult && !snap.street);
+  const meFolded = snap.seats.some((s) => s?.playerId === snap.me?.id && s.folded);
+  $("hole").classList.toggle("folded", meFolded);
   if (!snap.me?.sitting) {
     state.dealQueue = state.dealQueue.filter((item) => item.where !== "hole");
     state.shownHoles = [];
@@ -501,7 +520,8 @@ function renderShowdown(snap) {
     .map((w) => `${nameOf(snap, w.id)} 赢得 ${fmtChips(w.amount)}${w.handName ? " · " + w.handName : ""}`)
     .join("　") || "本手结束";
   const bounty = snap.events.find((e) => e.type === "bounty");
-  $("sd-win").textContent = `${resultText}${bounty ? `　${nameOf(snap, bounty.playerId)} 获得 27 杂色奖励 ${fmtChips(bounty.amount)}` : ""}`;
+  const squid = squidEventText(snap);
+  $("sd-win").textContent = `${resultText}${bounty ? `　${nameOf(snap, bounty.playerId)} 获得 27 杂色奖励 ${fmtChips(bounty.amount)}` : ""}${squid ? `　${squid}` : ""}`;
   box.classList.remove("hidden");
   const won = Boolean(me && lr.winners.some((w) => w.id === me && w.amount > 0));
   const shown = Boolean(me && lr.shown?.[me]);
@@ -568,6 +588,15 @@ function updateCountdown(snap) {
 function nameOf(snap, id) {
   const s = snap.seats.find((x) => x?.playerId === id);
   return s?.nickname ?? id.slice(0, 4);
+}
+
+function squidEventText(snap) {
+  return (snap.events ?? [])
+    .filter((e) => e.type === "squid")
+    .map((e) => e.message === "鱿鱼惩罚"
+      ? `${nameOf(snap, e.playerId)} 受到鱿鱼惩罚，支付 ${fmtChips(e.amount ?? 0)}；${(e.recipientIds ?? []).map((id) => nameOf(snap, id)).join("、") || "无人"} 获得奖励`
+      : `${nameOf(snap, e.playerId)} 获得鱿鱼`)
+    .join("　");
 }
 
 function bindRaiseSlider() {
@@ -769,7 +798,18 @@ function showSettle(snap) {
       (p) => `<tr><td>${escapeHtml(p.nickname)}</td><td>${fmtChips(p.buyinChips)}</td><td>${fmtChips(p.stack)}</td><td class="${p.net >= 0 ? "pos" : "neg"}">${p.net >= 0 ? "+" : ""}${fmtChips(p.net)}</td></tr>`,
     )
     .join("");
-  $("settle-table").innerHTML = `<table class="settle-table"><thead><tr><th>玩家</th><th>买入</th><th>筹码</th><th>净胜负</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const squid = squidEventText(snap);
+  $("settle-table").innerHTML = `${squid ? `<p class="squid-result">${escapeHtml(squid)}</p>` : ""}<table class="settle-table"><thead><tr><th>玩家</th><th>买入</th><th>筹码</th><th>净胜负</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function showStats(snap) {
+  const rows = (snap.standings ?? [])
+    .slice()
+    .sort((a, b) => b.net - a.net)
+    .map((p, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(p.nickname)}</td><td>${fmtChips(p.stack)}</td><td class="${p.net >= 0 ? "pos" : "neg"}">${p.net >= 0 ? "+" : ""}${fmtChips(p.net)}</td></tr>`)
+    .join("");
+  $("stats-table").innerHTML = `<table class="settle-table"><thead><tr><th>#</th><th>玩家</th><th>筹码</th><th>净胜负</th></tr></thead><tbody>${rows}</tbody></table>`;
+  $("stats-modal").classList.remove("hidden");
 }
 
 function inviteUrl() {
@@ -810,7 +850,10 @@ $("random-name").onclick = async () => {
 
 document.querySelectorAll(".tab").forEach((btn) => {
   btn.onclick = () => {
-    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b === btn));
+    document.querySelectorAll(".tab").forEach((b) => {
+      b.classList.toggle("on", b === btn);
+      b.setAttribute("aria-selected", String(b === btn));
+    });
     $("create-form").classList.toggle("hidden", btn.dataset.tab !== "create");
     $("join-form").classList.toggle("hidden", btn.dataset.tab !== "join");
   };
@@ -859,6 +902,8 @@ async function join(tableNumber, password) {
 
 $("btn-copy-link").onclick = () => copy(inviteUrl(), "邀请链接已复制");
 $("btn-copy-link-2").onclick = () => copy(inviteUrl(), "邀请链接已复制");
+$("btn-stats").onclick = () => showStats(state.snapshot);
+$("stats-close").onclick = () => $("stats-modal").classList.add("hidden");
 $("btn-leave").onclick = () => void leaveTable();
 $("btn-leave-2").onclick = () => void leaveTable();
 

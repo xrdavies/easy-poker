@@ -384,6 +384,10 @@ describe("identities / 昵称 / buy-in / privacy", () => {
     const bViewOfA = other.seats[aSeat];
     assert.ok(bViewOfA);
     assert.equal(bViewOfA!.holeCards, undefined);
+    table.players.get("a")!.shown = true;
+    assert.equal(table.snapshot("b").seats[aSeat]?.holeCards, undefined);
+    assert.throws(() => table.showCards("a"), /本手结束后才能亮牌/);
+    assert.deepEqual(own.standings.map((p) => p.net), [0, 0]);
     const raw = JSON.stringify(other);
     for (const c of own.me!.holeCards!) {
       assert.equal(bViewOfA!.holeCards, undefined);
@@ -795,7 +799,10 @@ describe("straddle / 鱿鱼 / 27杂色", () => {
       deck: parseCards("2c Ac 3d Ad 4h Kd 7c 8d 9s 5c 6d"),
     });
     drive(three, (id) => (id === "b" ? { type: "allin" } : { type: "fold" }));
-    assert.ok(three.events.some((e) => e.type === "squid" && e.message === "鱿鱼惩罚"));
+    const penalty = three.events.find((e) => e.type === "squid" && e.message === "鱿鱼惩罚");
+    assert.equal(penalty?.playerId, "c");
+    assert.deepEqual(penalty?.recipientIds, ["a", "b"]);
+    assert.equal(penalty?.amount, 8);
 
     const { table: mid } = open({ tableNumber: "SQUID4", squidEnabled: true, bounty27Enabled: false });
     joinSit(mid, "a", "A", 2);

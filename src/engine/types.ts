@@ -134,6 +134,7 @@ export interface GameEvent {
     | "bounty"
     | "squid";
   playerId?: string;
+  recipientIds?: string[];
   amount?: number;
   message?: string;
 }

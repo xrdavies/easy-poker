@@ -19,6 +19,7 @@ import {
   type RuntimeOpts,
   type RunoutVote,
   type Settlement,
+  type SettlementPlayer,
   type SquidState,
   type Street,
   type TableConfig,
@@ -114,6 +115,7 @@ export interface ClientSnapshot {
   bbSeat: number | null;
   straddleSeat: number | null;
   squid: SquidState | null;
+  standings: SettlementPlayer[];
   settlement: Settlement | null;
   events: GameEvent[];
   streetActions: HandAction[];
@@ -397,6 +399,7 @@ export class Table {
 
   showCards(playerId: string): void {
     const p = this.requirePlayer(playerId);
+    if (this.hand || !this.lastResult) throw new PokerError("hand_in_progress", "本手结束后才能亮牌");
     if (!p.holeCards) throw new PokerError("no_cards", "没有手牌可展示");
     p.shown = true;
     if (this.lastResult) this.lastResult.shown[p.id] = p.holeCards.slice();
@@ -658,6 +661,7 @@ export class Table {
       bbSeat: hand?.bbSeat ?? null,
       straddleSeat: hand?.straddleSeat ?? null,
       squid: this.squid ? { participants: this.squid.participants.slice(), holders: this.squid.holders.slice() } : null,
+      standings: this.standings(),
       settlement: this.settlement,
       events: this.events.slice(),
       streetActions: hand?.streetActions.map((action) => ({ ...action })) ?? [],
@@ -713,8 +717,7 @@ export class Table {
 
   private shouldShowHoles(p: PlayerState, viewerId: string | null): boolean {
     if (p.id === viewerId && p.holeCards) return true;
-    if (p.shown && p.holeCards) return true;
-    if (this.lastResult?.shown[p.id]) return true;
+    if (!this.hand && this.lastResult?.shown[p.id]) return true;
     return false;
   }
 
@@ -1370,13 +1373,19 @@ export class Table {
     const unit = this.config.bigBlind * 2;
     const loser = this.players.get(loserId);
     if (loser && others.length > 0) {
+      const recipients: string[] = [];
+      let total = 0;
       for (const id of others) {
         const pay = Math.min(loser.chips, unit);
         loser.chips -= pay;
         const o = this.players.get(id);
-        if (o) o.chips += pay;
+        if (o && pay > 0) {
+          o.chips += pay;
+          recipients.push(id);
+          total += pay;
+        }
       }
-      this.events.push({ type: "squid", playerId: loserId, message: "鱿鱼惩罚" });
+      this.events.push({ type: "squid", playerId: loserId, recipientIds: recipients, amount: total, message: "鱿鱼惩罚" });
     }
     const seatedIds = this.seated().map((p) => p.id);
     this.squid = seatedIds.length >= 2 ? { participants: seatedIds, holders: [] } : null;
@@ -1467,18 +1476,18 @@ export class Table {
     this.hand = null;
   }
 
+  private standings(): SettlementPlayer[] {
+    return [...this.players.values()]
+      .filter((p) => p.buyinChips > 0 || p.chips > 0)
+      .map((p) => {
+        const stack = p.chips + p.committed + p.pendingBuyinChips;
+        return { id: p.id, nickname: p.nickname, buyinChips: p.buyinChips, stack, net: stack - p.buyinChips };
+      });
+  }
+
   private settle(reason: Settlement["reason"]): void {
     this.applyPendingBuyins();
-    const players = [...this.players.values()]
-      .filter((p) => p.buyinChips > 0 || p.chips > 0)
-      .map((p) => ({
-        id: p.id,
-        nickname: p.nickname,
-        buyinChips: p.buyinChips,
-        stack: p.chips,
-        net: p.chips - p.buyinChips,
-      }));
-    this.settlement = { players, endedAt: this.now(), reason };
+    this.settlement = { players: this.standings(), endedAt: this.now(), reason };
     this.status = "finished";
     this.hand = null;
     this.nextHandAt = null;

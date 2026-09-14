@@ -43,6 +43,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /\.amount-submit\s*\{[^}]*height:\s*69px/s);
     assert.match(css, /\.action-row/);
     assert.match(css, /\.action-row button\s*\{[^}]*height:\s*48px/s);
+    assert.match(css, /\.action-row button\s*\{[^}]*margin:\s*0/s);
+    assert.match(css, /\.hole\.folded/);
     assert.match(css, /\.raise-presets button\s*\{[^}]*height:\s*32px/s);
     assert.match(css, /\.modal-actions\s*\{[^}]*grid-template-columns/s);
     assert.match(js, /raiseOpen/);
@@ -57,6 +59,8 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(css, /@media \(min-width:\s*821px\)[\s\S]*\.amount-submit\s*\{[^}]*height:\s*52px[^}]*\}[\s\S]*\.action-row button\s*\{[^}]*height:\s*38px[^}]*\}[\s\S]*\.raise-presets button\s*\{[^}]*height:\s*26px[^}]*\}[\s\S]*\.raise-ctl\s*\{[^}]*height:\s*24px[^}]*\}/);
     assert.match(css, /max-height:\s*720px[\s\S]*\.table-wrap\s*\{[^}]*padding-bottom:\s*112px/);
     const html = read("../public/index.html");
+    assert.match(html, /class="tabs" role="tablist"/);
+    assert.match(html, /class="tab on" role="tab" aria-selected="true"/);
     assert.match(html, /id="table-rules"/);
     assert.match(html, /<footer class="dock">[\s\S]*id="showdown"/);
     assert.doesNotMatch(html, /id="felt"[\s\S]*id="showdown"[\s\S]*class="dock"/);
@@ -102,6 +106,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /ep\.nick/);
     assert.match(js, /isPortraitTable/);
     assert.match(js, /queueDeals/);
+    assert.match(js, /classList\.toggle\("folded", meFolded\)/);
     assert.match(js, /const handEnded = Boolean\(snap\.lastResult && !snap\.street\)/);
     assert.match(js, /state\.dealQueue = state\.dealQueue\.filter\(\(item\) => item\.where !== "hole"\)/);
     assert.match(js, /if \(!snap\.me\?\.sitting\)[\s\S]*state\.shownHoles = \[\][\s\S]*\$\("hole"\)\.innerHTML = ""/);
@@ -127,6 +132,10 @@ describe("client UI source (shipped public assets)", () => {
     assert.doesNotMatch(js, /亮出 27 杂色，领取奖励/);
     assert.match(js, /获得 27 杂色奖励/);
     assert.doesNotMatch(js, /if \(state\.showdownHand === hn\) return/);
+    assert.match(html, /id="btn-stats"/);
+    assert.match(html, /id="stats-modal"/);
+    assert.match(js, /snap\.standings/);
+    assert.match(js, /squidEventText/);
   });
 
   it("ships persistent browser AI management without changing the CLI agent", () => {
@@ -196,6 +205,9 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /play\("win"\)/);
     assert.match(js, /play\("lose"\)/);
     assert.match(js, /SFX_POOL/);
+    assert.doesNotMatch(js, /cloneNode/);
+    assert.match(js, /document\.addEventListener\("pointerdown", unlockAudio/);
+    assert.match(js, /JSON\.stringify\(\[snap\.handNumber, snap\.street, events\]\)/);
     assert.match(js, /raise-val/);
     assert.match(js, /data-runout/);
     assert.match(js, /actionLock/);

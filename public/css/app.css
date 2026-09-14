@@ -53,14 +53,14 @@ button { cursor: pointer; }
 .row { display: flex; gap: 8px; align-items: center; }
 .row input { flex: 1; }
 .check { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--ink); font-size: 14px; }
-.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 16px 0 10px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; margin: 16px 0 10px; border-bottom: 1px solid #2a3d4c; }
 .tab, .ghost, .primary {
   border-radius: 12px;
   border: 1px solid transparent;
   padding: 10px 14px;
 }
-.tab { background: #13202b; color: var(--muted); border-color: #243848; }
-.tab.on { color: var(--bg); background: linear-gradient(180deg, var(--gold), var(--gold-2)); font-weight: 700; }
+.tab { background: transparent; color: var(--muted); border: 0; border-bottom: 3px solid transparent; border-radius: 0; }
+.tab.on { color: var(--gold); border-bottom-color: var(--gold); font-weight: 700; }
 .ghost { background: transparent; color: var(--ink); border-color: #3a5163; }
 .primary {
   width: 100%;
@@ -371,6 +371,7 @@ button { cursor: pointer; }
   z-index: 4;
 }
 .hole .card { width: 62px; height: 88px; }
+.hole.folded { opacity: 0.42; filter: grayscale(0.8); }
 
 .dock {
   display: grid;
@@ -404,7 +405,7 @@ button { cursor: pointer; }
 .amount-submit span { font-size: 12px; }
 .amount-panel .raise-ctl output { display: none; }
 .action-row { display: flex; gap: 6px; justify-content: flex-end; }
-.action-row button { flex: 1 1 0; height: 48px; min-height: 48px; }
+.action-row button { flex: 1 1 0; height: 48px; min-height: 48px; margin: 0; }
 .actions input[type="range"] { flex: 1; width: auto; min-width: 0; }
 .raise-presets { display: flex; gap: 4px; width: 100%; }
 .raise-presets button { flex: 1 1 0; min-width: 0; height: 32px; min-height: 32px; padding: 0 7px; border: 1px solid #6b5940; border-radius: 8px; background: #263641; color: var(--gold); }
@@ -452,6 +453,8 @@ button { cursor: pointer; }
   padding: 20px;
 }
 .modal-card h3 { margin: 0 0 12px; }
+.stats-card { max-height: min(82dvh, 620px); overflow: auto; }
+.stats-card #stats-close { width: 100%; }
 .modal-card #buyin-hint { margin: 10px 0 14px; line-height: 1.5; }
 .modal-actions { display: grid; grid-template-columns: minmax(88px, 1fr) 2fr; gap: 8px; }
 .modal-actions button { width: 100%; min-height: 44px; margin: 0; white-space: nowrap; }
@@ -490,6 +493,7 @@ button { cursor: pointer; }
 }
 .settle-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
 .settle-table th, .settle-table td { padding: 8px; text-align: left; border-bottom: 1px solid #2a3d4c; }
+.squid-result { color: var(--gold); line-height: 1.5; }
 .pos { color: var(--ok); }
 .neg { color: var(--danger); }
 
