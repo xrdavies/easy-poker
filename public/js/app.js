@@ -306,10 +306,10 @@ function playEvents(snap) {
     play(name);
   };
   for (const e of events) {
-    if (e.type === "fold") once("fold");
+    if (e.allIn || e.type === "allin") once("allin");
+    else if (e.type === "fold") once("fold");
     else if (e.type === "check") once("check");
     else if (e.type === "call" || e.type === "bet" || e.type === "raise") play("bet");
-    else if (e.type === "allin") once("allin");
     else if (e.type === "emote" && EMOTE_VOICE[e.emoji] && e.variant) {
       play(`emote-${EMOTE_VOICE[e.emoji]}-${e.variant}`);
     }

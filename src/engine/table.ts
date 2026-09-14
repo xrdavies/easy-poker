@@ -974,6 +974,7 @@ export class Table {
 
   private recordAction(playerId: string, type: ActionType, amount?: number): void {
     const action: HandAction = amount === undefined ? { playerId, type } : { playerId, type, amount };
+    if (this.players.get(playerId)?.allIn) action.allIn = true;
     this.hand?.streetActions.push(action);
     this.events.push(action);
   }

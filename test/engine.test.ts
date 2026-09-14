@@ -455,6 +455,17 @@ describe("hand / street / pots / timeout", () => {
     assert.equal(table.hand!.actingPlayerId, "a");
   });
 
+  it("marks a max bet or raise as all-in without changing its action type", () => {
+    const { table } = open();
+    joinSit(table, "a", "A");
+    joinSit(table, "b", "B");
+    table.startHand({ deck: parseCards("Kc Ac Kd Ad 2c 3d 4h 5s 6c") });
+
+    table.action("a", { type: "raise", amount: 200 });
+
+    assert.deepEqual(table.events, [{ playerId: "a", type: "raise", amount: 200, allIn: true }]);
+  });
+
   it("snapshot exposes only the current street action history", () => {
     const { table } = open();
     joinSit(table, "a", "A");

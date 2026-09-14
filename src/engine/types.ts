@@ -78,6 +78,7 @@ export interface HandAction {
   playerId: string;
   type: ActionType;
   amount?: number;
+  allIn?: boolean;
 }
 
 export interface HandState {

@@ -203,6 +203,7 @@ describe("client UI source (shipped public assets)", () => {
     assert.match(js, /e\.type === "call"/);
     assert.match(js, /bet-1/);
     assert.match(js, /once\("allin"\)/);
+    assert.match(js, /e\.allIn \|\| e\.type === "allin"/);
     assert.match(js, /play\("deal"\)/);
     assert.match(js, /play\("shuffle"\)/);
     assert.match(js, /play\("tick"\)/);
